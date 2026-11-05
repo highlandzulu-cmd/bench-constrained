@@ -208,6 +208,30 @@ def _selftest_cells(a, s, profiles, cluster, results_dir, run_id, image, code_cm
     return 0 if ok_all else 1
 
 
+def cmd_exec(a) -> int:
+    """Run one shell command inside a real benchmark pod (same limits, nodes and user) and print what it said."""
+    s, profiles = load_settings(), load_profiles()
+    if not _require_scope(s):
+        return 2
+    cluster = _cluster(a, s)
+    run_id = f"exec-{_run_id()}"
+    code_cm = None
+    if not a.image_code:
+        code_cm = f"bench-code-{run_id}".lower()[:63]
+        cluster.create_configmap(code_cm, _code_files(), run_id)
+    p = profiles[a.profile]
+    cell = {"run_id": run_id, "task_id": "EXEC", "profile": p.name, "repeat": 1, "mode": "verify", "backend": "k8s",
+            "arch": p.arch, "cpu_limit": p.cpu_limit, "mem_limit_mib": p.memory_mib, "emulated": False, "timeout_s": 180}
+    try:
+        rec = run_cell(cell, p, s, cluster, ROOT / s.results_dir, deadline_s=240, code_configmap=code_cm, exec_cmd=a.command)
+    finally:
+        if code_cm:
+            cluster.delete_configmap(code_cm)
+    print(rec.get("exec_output") or f"(no output) status={rec['status']} notes={rec.get('notes')}")
+    print(f"--- exit code {rec.get('exec_exit_code')}, peak {rec.get('peak_mem_mib')} MiB, node {rec.get('node')}")
+    return 0
+
+
 def cmd_summary(a) -> int:
     s = load_settings()
     recs = report.load_results(ROOT / s.results_dir, a.run_id)
@@ -254,6 +278,10 @@ def main(argv=None) -> int:
                    help="run on a public image with the runner mounted from a ConfigMap (no custom image needed)")
     t.add_argument("--only", choices=["cpu"], help="run just the CPU check")
     t.set_defaults(fn=cmd_selftest)
+    ex = sub.add_parser("exec", help="run one shell command inside a benchmark pod and show its output (debugging)")
+    ex.add_argument("command"); ex.add_argument("--profile", default="tiny")
+    ex.add_argument("--image-code", action="store_true", help="use the runner code baked into the image, not this folder's")
+    ex.set_defaults(fn=cmd_exec)
     su = sub.add_parser("summary"); su.add_argument("run_id"); su.set_defaults(fn=cmd_summary)
     c = sub.add_parser("clean"); c.add_argument("--run-id"); c.set_defaults(fn=cmd_clean)
     a = p.parse_args(argv)

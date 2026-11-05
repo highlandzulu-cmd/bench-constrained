@@ -34,10 +34,10 @@ def cell_dir(results_dir: Path, cell: dict[str, Any]) -> Path:
 
 def run_cell(cell: dict[str, Any], profile: Profile, settings: Settings, cluster: ClusterLike,
              results_dir: Path, keep: bool = False, synth: str = "", deadline_s: int | None = None,
-             image: str | None = None, code_configmap: str | None = None, attempt: int = 1) -> dict[str, Any]:
+             image: str | None = None, code_configmap: str | None = None, attempt: int = 1, exec_cmd: str = "") -> dict[str, Any]:
     job = build_job(run_id=cell["run_id"], task_id=cell["task_id"], profile=profile, repeat=cell["repeat"],
                     settings=settings, timeout_s=cell["timeout_s"], mode=cell["mode"], synth=synth,
-                    deadline_s=deadline_s, image=image, code_configmap=code_configmap, attempt=attempt)
+                    deadline_s=deadline_s, image=image, code_configmap=code_configmap, attempt=attempt, exec_cmd=exec_cmd)
     name = job["metadata"]["name"]
     d = cell_dir(results_dir, cell)
     d.mkdir(parents=True, exist_ok=True)

@@ -77,6 +77,7 @@ class PodConfig:
     cgroup_root: str = "/sys/fs/cgroup"
     verify_timeout_s: int = 300
     progress_every_s: float = 10.0
+    exec_cmd: str = ""                      # debugging: run this shell command in the pod instead of a task
     agent: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -86,6 +87,7 @@ class PodConfig:
         return cls(
             task_id=e.get("BENCH_TASK", ""),
             synth=e.get("BENCH_SYNTH", ""),
+            exec_cmd=e.get("BENCH_EXEC", ""),
             mode=e.get("BENCH_MODE", "agent"),
             run_id=e.get("BENCH_RUN_ID", ""),
             profile=e.get("BENCH_PROFILE", ""),
@@ -246,12 +248,19 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
                      daemon=True).start()
     cfg.work_dir.mkdir(parents=True, exist_ok=True)
 
-    result: dict[str, Any] = {"run_id": cfg.run_id, "task_id": cfg.task_id or f"SYNTH:{cfg.synth}",
+    result: dict[str, Any] = {"run_id": cfg.run_id, "task_id": cfg.task_id or ("EXEC" if cfg.exec_cmd else f"SYNTH:{cfg.synth}"),
                               "profile": cfg.profile, "repeat": cfg.repeat, "mode": cfg.mode if not cfg.synth else "synth",
                               "agent_exit_code": None, "agent_timed_out": False, "verifier_exit_code": None,
                               "verifier_timed_out": False, "agent_s": 0.0, "verify_s": 0.0, "notes": []}
     try:
-        if cfg.synth:
+        if cfg.exec_cmd:
+            log = cfg.work_dir / "exec.log"
+            code, timed_out = _run(["sh", "-c", cfg.exec_cmd], cfg.work_dir, env, 180, log)
+            text = log.read_text(errors="replace") if log.exists() else ""
+            result.update(exec_exit_code=code, exec_output=text[-8000:])
+            result["verifier_exit_code"] = code if code is not None else 1
+            result["verifier_timed_out"] = timed_out
+        elif cfg.synth:
             out = run_synth(cfg.synth, cfg)
             result["verifier_exit_code"] = out["verifier_exit_code"]
             result["notes"] += out["notes"]

@@ -74,3 +74,13 @@ def test_child_processes_get_pwd_of_their_working_folder(tmp_path):
     code, timed_out = _run(["python3", "-c", "import os; print(os.environ['PWD'])"], work,
                            {**os.environ, "PWD": "/some/other/stale/folder"}, 30, log)
     assert code == 0 and not timed_out and log.read_text().strip() == str(work)
+
+
+def test_exec_mode_runs_a_command_and_returns_its_output(tmp_path):
+    from bench.podrun import PodConfig, run
+    r = run(PodConfig(exec_cmd="echo hello-from-the-pod; echo oops 1>&2; exit 3", work_dir=tmp_path, progress_every_s=999,
+                      cgroup_root=str(tmp_path / "nocg")))
+    assert r["task_id"] == "EXEC" and r["exec_exit_code"] == 3 and "hello-from-the-pod" in r["exec_output"] and "oops" in r["exec_output"]
+    assert r["in_pod_status"] == "fail"
+    ok = run(PodConfig(exec_cmd="echo fine", work_dir=tmp_path, progress_every_s=999, cgroup_root=str(tmp_path / "nocg")))
+    assert ok["in_pod_status"] == "pass" and ok["exec_exit_code"] == 0

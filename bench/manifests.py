@@ -55,6 +55,7 @@ def build_job(
     image: str | None = None,
     code_configmap: str | None = None,
     attempt: int = 1,
+    exec_cmd: str = "",
 ) -> dict[str, Any]:
     name = job_name(run_id, synth.replace(":", "-") if synth else task_id, profile.name, repeat, attempt)
     lbls = labels(run_id, synth.replace(":", "-") if synth else task_id, profile.name, repeat)
@@ -70,7 +71,9 @@ def build_job(
         {"name": "CARGO_HOME", "value": "/work/cargo"},
         {"name": "npm_config_cache", "value": "/tmp/npm-cache"},
     ]
-    if synth:
+    if exec_cmd:
+        env.append({"name": "BENCH_EXEC", "value": exec_cmd})
+    elif synth:
         env.append({"name": "BENCH_SYNTH", "value": synth})
     else:
         env.append({"name": "BENCH_TASK", "value": task_id})
