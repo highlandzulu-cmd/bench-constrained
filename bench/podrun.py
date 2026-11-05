@@ -36,6 +36,22 @@ _API_ERROR = re.compile(r"HTTP (?:429|5\d\d)|Transport error|error decoding resp
                         re.IGNORECASE)
 
 
+_LAUNCH_ERROR = re.compile(r"command not found|No such file or directory|Cannot find module|ENOENT|EACCES|Permission denied|"
+                           r"exec format error|not found in PATH|is not recognized", re.IGNORECASE)
+
+
+def detect_launch_error(agent_exit: int | None, tail: str) -> str | None:
+    """The first line explaining why the harness itself could not start (missing program, unwritable folder...)."""
+    if agent_exit in (0, None):
+        return None
+    if agent_exit in (126, 127):
+        return (tail.strip().splitlines() or [f"exit code {agent_exit}"])[-1][:300]
+    for line in tail.splitlines():
+        if _LAUNCH_ERROR.search(line):
+            return line.strip()[:300]
+    return None
+
+
 def detect_api_error(agent_exit: int | None, tail: str) -> str | None:
     """The first line naming a model API failure, when the agent exited non-zero because of one."""
     if agent_exit in (0, None):
@@ -132,6 +148,8 @@ def run_agent(task: Task, cfg: PodConfig, work: Path, env: dict[str, str]) -> tu
     home = cfg.work_dir / "home"
     home.mkdir(parents=True, exist_ok=True)
     spec = harnesses.launch(cfg.agent.get("harness", "loop"), task.prompt, work, home, cfg.agent, env)
+    for d in spec.dirs:
+        Path(d).mkdir(parents=True, exist_ok=True)
     for path, content in spec.files.items():
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(content)
@@ -249,6 +267,7 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
                 result.update(agent_exit_code=code, agent_timed_out=timed_out, agent_s=round(time.time() - ta, 1),
                               agent_tail=tail)
                 result["agent_api_error"] = detect_api_error(code, tail)
+                result["agent_launch_error"] = None if result["agent_api_error"] else detect_launch_error(code, tail)
             elif cfg.mode == "verify":
                 result["solution_applied"] = apply_solution(task, cfg, work, env)
             else:
@@ -269,6 +288,8 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
         in_pod = "error"
     elif result.get("agent_api_error"):
         in_pod = "api_error"
+    elif result.get("agent_launch_error"):
+        in_pod = "launch_error"
     elif result["agent_timed_out"] or result["verifier_timed_out"]:
         in_pod = "timeout"
     elif result["verifier_exit_code"] == 0:

@@ -128,6 +128,9 @@ def cmd_run(a) -> int:
               f"-> {rec['status']:11} peak={rec.get('peak_mem_mib')} MiB wall={rec.get('wall_clock_s')}s")
         if rec["status"] in ("infra_error", "fail", "timeout") and rec.get("notes"):
             print("      why: " + " | ".join(str(n) for n in rec["notes"])[:400].replace("\n", " "))
+        if rec["status"] == "fail" and rec.get("agent_exit_code") not in (0, None):
+            last = (rec.get("agent_tail") or "").strip().splitlines()[-3:]
+            print(f"      the agent exited with code {rec.get('agent_exit_code')}; its last lines: " + " | ".join(last)[:400])
 
     code_cm = None
     if a.code_from_configmap:

@@ -17,6 +17,7 @@ class LaunchSpec:
     cmd: list[str]
     env: dict[str, str] = field(default_factory=dict)
     files: dict[str, str] = field(default_factory=dict)       # absolute path -> content, written before the start
+    dirs: list[str] = field(default_factory=list)             # folders to create first (some harnesses need them to exist)
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
@@ -75,7 +76,7 @@ def dsh(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, s
 """
     return LaunchSpec([a.get("dsh_bin", "dsh"), "--profile", "headless", "--patch", str(patch), prompt],
                       {"DSH_HOME": str(home / "dsh-home"), "DSH_PERMISSION_MODE": "danger-full-access",
-                       "BENCH_API_KEY": env.get("LLM_API_KEY", "")}, {str(patch): text})
+                       "BENCH_API_KEY": env.get("LLM_API_KEY", "")}, {str(patch): text}, [str(home / "dsh-home")])
 
 
 def codex(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
@@ -89,7 +90,7 @@ def codex(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str,
                'model_providers.bench.wire_api="responses"'):
         cmd += ["-c", kv]
     cmd += ["-m", a["model"], prompt]
-    return LaunchSpec(cmd, {"CODEX_HOME": str(home / "codex-home")}, {})
+    return LaunchSpec(cmd, {"CODEX_HOME": str(home / "codex-home")}, {}, [str(home / "codex-home")])
 
 
 BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex}

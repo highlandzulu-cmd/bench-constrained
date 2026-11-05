@@ -106,6 +106,8 @@ def classify(cell: dict[str, Any], out: PodOutcome) -> dict[str, Any]:
     elif result:
         in_pod = result.get("in_pod_status")
         status = {"pass": "pass", "fail": "fail", "timeout": "timeout"}.get(in_pod, "infra_error")
+        if in_pod == "launch_error":
+            notes.append("the harness could not start, the task was not attempted: " + str(result.get("agent_launch_error", "")))
         if in_pod == "api_error":
             notes.append("model API error, the task was not attempted: " + str(result.get("agent_api_error", "")))
         if in_pod == "error":

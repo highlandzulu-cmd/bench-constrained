@@ -127,3 +127,29 @@ def test_pods_always_check_the_registry_so_a_rebuilt_tag_is_never_stale(profiles
     job = build_job(run_id="r", task_id="BUG-01", profile=profiles["tiny"], repeat=1, settings=settings, timeout_s=900)
     assert job["spec"]["template"]["spec"]["containers"][0]["imagePullPolicy"] == "Always"
     assert build_translator(settings)[1]["spec"]["template"]["spec"]["containers"][0]["imagePullPolicy"] == "Always"
+
+
+def test_harness_home_folders_are_created_before_starting(tmp_path):
+    """DeepSeek Harness and Codex need their home folder to exist; the local tests made it by hand, the pod did not."""
+    from bench.podrun import PodConfig, run_agent
+    from bench.tasks import Task
+    for name, folder in (("dsh", "dsh-home"), ("codex", "codex-home")):
+        s = harnesses.launch(name, "x", WORK, tmp_path / "home", A, ENV)
+        assert str(tmp_path / "home" / folder) in s.dirs
+
+
+def test_a_harness_that_cannot_start_is_not_a_task_failure():
+    from bench.podrun import detect_launch_error
+    assert "not found" in detect_launch_error(127, "sh: 1: dsh: not found\n")
+    assert "ENOENT" in detect_launch_error(1, "Error: ENOENT: no such file or directory, mkdir '/x'\n")
+    assert detect_launch_error(0, "ENOENT somewhere in a successful run") is None
+    assert detect_launch_error(1, "tests failed, agent gave up\n") is None
+
+
+def test_launch_error_becomes_an_infra_error_with_the_reason():
+    from bench.results import PodOutcome, classify
+    import json as _json
+    out = PodOutcome(exit_code=0, logs="BENCH_RESULT " + _json.dumps({"in_pod_status": "launch_error", "agent_launch_error": "sh: dsh: not found"}))
+    rec = classify({"task_id": "BUG-01"}, out)
+    assert rec["status"] == "infra_error" and "could not start" in " ".join(rec["notes"]) and "dsh: not found" in " ".join(rec["notes"])
+    assert rec["retryable"] is False                                    # our setup problem; retrying would repeat it
