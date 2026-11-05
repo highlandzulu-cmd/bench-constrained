@@ -119,3 +119,11 @@ def test_translator_config_is_valid_yaml_with_the_tested_settings(settings):
     p = cfg["model_list"][0]["litellm_params"]
     assert cfg["model_list"][0]["model_name"] == "GLM-5.3" and p["model"] == "openai/GLM-5.3"
     assert p["use_chat_completions_api"] is True and p["api_key"] == "os.environ/SOKET_API_KEY" and cfg["litellm_settings"]["drop_params"] is True
+
+
+def test_pods_always_check_the_registry_so_a_rebuilt_tag_is_never_stale(profiles, settings):
+    """The image tag is re-published on each build; IfNotPresent would keep a node's old copy and miss new harnesses."""
+    from bench.manifests import build_translator
+    job = build_job(run_id="r", task_id="BUG-01", profile=profiles["tiny"], repeat=1, settings=settings, timeout_s=900)
+    assert job["spec"]["template"]["spec"]["containers"][0]["imagePullPolicy"] == "Always"
+    assert build_translator(settings)[1]["spec"]["template"]["spec"]["containers"][0]["imagePullPolicy"] == "Always"

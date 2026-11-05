@@ -98,7 +98,7 @@ def build_job(
         "containers": [{
             "name": "task",
             "image": image or settings.image,
-            "imagePullPolicy": "IfNotPresent",
+            "imagePullPolicy": "Always",
             "command": ["python3", "-m", "bench.podrun"],
             "env": env,
             "resources": resources(profile, settings),
@@ -176,7 +176,7 @@ def build_translator(settings: Settings) -> list[dict[str, Any]]:
         "automountServiceAccountToken": False,
         "securityContext": {"runAsNonRoot": True, "runAsUser": UID, "runAsGroup": UID, "seccompProfile": {"type": "RuntimeDefault"}},
         "containers": [{
-            "name": "translator", "image": settings.translator_image, "imagePullPolicy": "IfNotPresent",
+            "name": "translator", "image": settings.translator_image, "imagePullPolicy": "Always",
             "ports": [{"containerPort": TRANSLATOR_PORT}],
             "env": [
                 {"name": "SOKET_API_KEY", "valueFrom": {"secretKeyRef": {"name": settings.secret_name, "key": settings.secret_key}}},
