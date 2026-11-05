@@ -1,4 +1,5 @@
 """The in-pod flow on this machine: untouched fixtures fail their verifier, reference fixes pass."""
+import os
 from pathlib import Path
 
 import pytest
@@ -62,3 +63,14 @@ def test_cpuburn_actually_burns_cpu_on_this_machine(tmp_path):
     after = resource.getrusage(resource.RUSAGE_CHILDREN)
     used = (after.ru_utime + after.ru_stime) - (before.ru_utime + before.ru_stime)
     assert used >= 1.6                          # 2 processes x 1 s of spinning
+
+
+def test_child_processes_get_pwd_of_their_working_folder(tmp_path):
+    """OpenCode-style tools read $PWD; it must be the task folder, not whatever the parent had."""
+    from bench.podrun import _run
+    work = tmp_path / "task"
+    work.mkdir()
+    log = tmp_path / "out.log"
+    code, timed_out = _run(["python3", "-c", "import os; print(os.environ['PWD'])"], work,
+                           {**os.environ, "PWD": "/some/other/stale/folder"}, 30, log)
+    assert code == 0 and not timed_out and log.read_text().strip() == str(work)

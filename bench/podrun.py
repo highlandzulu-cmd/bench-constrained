@@ -105,6 +105,9 @@ def prepare_workdir(task: Task, cfg: PodConfig) -> Path:
 def _run(cmd: list[str] | str, cwd: Path, env: dict[str, str], timeout_s: int, log: Path,
          shell: bool = False) -> tuple[int | None, bool]:
     """Run to completion in its own process group; (exit code, timed_out). Output goes to `log`."""
+    # Some tools (OpenCode, Kilo) trust $PWD over the real working directory, and a child process
+    # started with cwd=... still inherits the parent's stale PWD. Set it so they work in the task folder.
+    env = dict(env, PWD=str(cwd))
     with open(log, "wb") as out:
         proc = subprocess.Popen(cmd, cwd=cwd, env=env, shell=shell, stdin=subprocess.DEVNULL,
                                 stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
