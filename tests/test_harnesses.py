@@ -153,3 +153,17 @@ def test_launch_error_becomes_an_infra_error_with_the_reason():
     rec = classify({"task_id": "BUG-01"}, out)
     assert rec["status"] == "infra_error" and "could not start" in " ".join(rec["notes"]) and "dsh: not found" in " ".join(rec["notes"])
     assert rec["retryable"] is False                                    # our setup problem; retrying would repeat it
+
+
+def test_a_silent_instant_success_is_not_a_result():
+    from bench.podrun import detect_silent_exit
+    assert "without any output" in detect_silent_exit(0, 0.2, "")
+    assert detect_silent_exit(0, 0.2, "loop: did the work") is None          # it said something
+    assert detect_silent_exit(0, 40.0, "") is None                            # long enough to have worked quietly
+    assert detect_silent_exit(1, 0.2, "") is None                             # a failure is reported by the other checks
+
+
+def test_the_image_uses_node_24_and_checks_the_harness_really_runs():
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert "node:24-bookworm-slim" in text and "node:20" not in text
+    assert 'test "$(dsh --version)" = "0.2.2-rc.1"' in text            # a silent no-op dsh now fails the build

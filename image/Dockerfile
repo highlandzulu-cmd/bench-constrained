@@ -14,9 +14,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && rustup component add clippy
 
-# Node 20 (the website verifiers use node:test and jsdom)
-COPY --from=node:20-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:20-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+# Node 24: DeepSeek Harness 0.2.2-rc.1 needs >= 24.9 (on Node 20 it starts, prints nothing and exits 0). The website verifiers (node:test, jsdom) run fine on it.
+COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 # Loop (glibc release, checksum verified)
@@ -30,7 +30,8 @@ RUN mkdir -p /opt/harness/bin \
 
 # Harnesses under test besides Loop. Versions are pinned; DeepSeek Harness and Codex are the newest releases as of 2026-11-05.
 RUN npm install -g --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1 @openai/codex@0.166.0 \
- && dsh --version && codex --version
+ && test "$(dsh --version)" = "0.2.2-rc.1" && codex --version | grep -q "0.166.0" \
+ && node -e "const [a,b]=process.versions.node.split('.').map(Number); if (a<24 || (a===24 && b<9)) process.exit(1)"
 
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures

@@ -52,6 +52,14 @@ def detect_launch_error(agent_exit: int | None, tail: str) -> str | None:
     return None
 
 
+def detect_silent_exit(agent_exit: int | None, secs: float, tail: str) -> str | None:
+    """A harness that "succeeds" in a couple of seconds without printing a word did not do the task (for example a
+    program that needs a newer Node than the image has just returns 0)."""
+    if agent_exit == 0 and secs < 5 and not tail.strip():
+        return f"the harness exited successfully after {secs:g}s without any output; it did not run the task"
+    return None
+
+
 def detect_api_error(agent_exit: int | None, tail: str) -> str | None:
     """The first line naming a model API failure, when the agent exited non-zero because of one."""
     if agent_exit in (0, None):
@@ -276,7 +284,8 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
                 result.update(agent_exit_code=code, agent_timed_out=timed_out, agent_s=round(time.time() - ta, 1),
                               agent_tail=tail)
                 result["agent_api_error"] = detect_api_error(code, tail)
-                result["agent_launch_error"] = None if result["agent_api_error"] else detect_launch_error(code, tail)
+                result["agent_launch_error"] = None if result["agent_api_error"] else (
+                    detect_launch_error(code, tail) or detect_silent_exit(code, result["agent_s"], tail))
             elif cfg.mode == "verify":
                 result["solution_applied"] = apply_solution(task, cfg, work, env)
             else:
