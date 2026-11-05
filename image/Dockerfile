@@ -2,7 +2,9 @@
 # node_modules already installed), the Loop binary, the 13 fixtures, and this runner.
 # Build from the repo root (linux/amd64; for arm64 nodes build again with LOOP_TARGET=aarch64-unknown-linux-gnu):
 #   docker build --platform linux/amd64 -f image/Dockerfile -t <registry>/bench-tasks:0.1 .
-# Built by .github/workflows/image.yml on every push; not yet run in a pod.
+# Built by .github/workflows/image.yml on every push.
+# The pods run as user 10001: it needs a passwd entry (the `useradd` below), otherwise Node's os.userInfo() throws ENOENT
+# and programs such as DeepSeek Harness exit silently.
 FROM rust:1-slim-bookworm
 LABEL org.opencontainers.image.source="https://github.com/highlandzulu-cmd/bench-constrained"
 
@@ -12,7 +14,9 @@ ARG LOOP_TARGET=x86_64-unknown-linux-gnu
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-yaml curl ca-certificates perl \
  && rm -rf /var/lib/apt/lists/* \
- && rustup component add clippy
+ && rustup component add clippy \
+ && useradd -u 10001 -U -M -d /work/home -s /bin/sh bench \
+ && test "$(getent passwd 10001 | cut -d: -f1)" = "bench"
 
 # Node 24: DeepSeek Harness 0.2.2-rc.1 needs >= 24.9 (on Node 20 it starts, prints nothing and exits 0). The website verifiers (node:test, jsdom) run fine on it.
 COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node

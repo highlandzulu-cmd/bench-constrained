@@ -167,3 +167,11 @@ def test_the_image_uses_node_24_and_checks_the_harness_really_runs():
     text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
     assert "node:24-bookworm-slim" in text and "node:20" not in text
     assert 'test "$(dsh --version)" = "0.2.2-rc.1"' in text            # a silent no-op dsh now fails the build
+
+
+def test_the_pod_user_has_a_passwd_entry():
+    """uid 10001 with no passwd entry makes os.userInfo() throw ENOENT, and DeepSeek Harness then exits silently."""
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert "useradd -u 10001" in text and "getent passwd 10001" in text
+    from bench.manifests import UID
+    assert UID == 10001
