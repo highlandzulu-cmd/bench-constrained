@@ -1,0 +1,23 @@
+# Apply ONLY after the cluster admin approves:  kubectl apply -f deploy/namespace.yaml
+# Creates the dedicated namespace and a quota so a bad sweep cannot take over the cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bench-constrained
+  labels: { app: bench-constrained }
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bench-quota
+  namespace: bench-constrained
+  labels: { app: bench-constrained }
+spec:
+  hard:
+    pods: "8"
+    requests.cpu: "16"
+    limits.cpu: "16"
+    requests.memory: 32Gi
+    limits.memory: 32Gi
+    requests.ephemeral-storage: 40Gi
+    limits.ephemeral-storage: 40Gi

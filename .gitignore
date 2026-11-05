@@ -1,0 +1,9 @@
+target/
+.env
+.venv/
+results/
+__pycache__/
+*.pyc
+fixtures/*/node_modules
+fixtures/*/target
+config/settings.local.yaml

@@ -1,0 +1,3 @@
+# Copy to settings.local.yaml and fill in. That file is not committed.
+allowed_nodes: [your-node-1, your-node-2]   # pods may run ONLY here
+priority_class: your-low-priority-class      # optional: lets other teams' pods preempt ours

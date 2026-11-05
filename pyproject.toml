@@ -1,0 +1,18 @@
+[project]
+name = "bench-constrained"
+version = "0.1.0"
+description = "Run the 13-task coding benchmark in Kubernetes pods with enforced CPU and memory limits"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6", "kubernetes>=29"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+bench = "bench.cli:main"
+
+[tool.setuptools]
+packages = ["bench"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

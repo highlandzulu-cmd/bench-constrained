@@ -1,0 +1,10 @@
+.venv
+.git
+results
+__pycache__
+**/__pycache__
+**/*.pyc
+fixtures/*/node_modules
+fixtures/*/target
+tests
+src_tasks

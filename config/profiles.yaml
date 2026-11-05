@@ -1,0 +1,14 @@
+# Resource profiles. cpu/memory are Kubernetes quantities; requests always equal limits.
+# cpu_scale multiplies cpu (a slow-core emulation); profiles using it are marked emulated.
+profiles:
+  baseline:   { cpu: "4",   memory: 8Gi,   arch: any }
+  tiny:       { cpu: "1",   memory: 512Mi, arch: any }
+  ci_small:   { cpu: "2",   memory: 4Gi,   arch: amd64 }
+  sbc_arm:    { cpu: "4",   memory: 2Gi,   arch: arm64, cpu_scale: 0.4 }
+  starve_384: { cpu: "1",   memory: 384Mi, arch: any }
+  starve_256: { cpu: "0.5", memory: 256Mi, arch: any }
+
+# Relative sweep: limits as a percentage of each task's measured baseline peak.
+relative_sweep:
+  memory_pct: [100, 75, 50, 35, 25]
+  cpu: ["2", "1", "0.5"]

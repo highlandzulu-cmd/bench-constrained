@@ -1,0 +1,28 @@
+# Everything environment-specific lives here; no magic numbers in code.
+namespace: bench-constrained
+image: ghcr.io/highlandzulu-cmd/bench-tasks:0.1   # built by the GitHub Action; make the package public
+image_pull_secrets: []                 # e.g. [regcred]
+node_selector: {}                      # e.g. {bench: "true"} once nodes are dedicated
+# Pods may ONLY run on these nodes (hard requirement). `bench run` refuses to start while this and node_selector
+# are both empty, so a run can never land on someone else's node by default.
+# Put the node names (and priority_class) for YOUR cluster in config/settings.local.yaml, which is not committed.
+allowed_nodes: []
+priority_class: ""                     # a low-priority class means other teams' pods can preempt ours, never the reverse
+max_parallel: 4                        # pods running at once, cluster-wide
+repeats: 3
+pending_timeout_s: 600                 # a pod still Pending after this is an infrastructure error
+deadline_grace_s: 300                  # added to task timeout + verifier time for the Job deadline
+verify_timeout_s: 300
+ephemeral_storage: 4Gi                 # request = limit
+work_size_limit: 2Gi                   # emptyDir for /work
+tmp_size_limit: 256Mi                  # emptyDir for /tmp
+secret_name: bench-api-key             # created by the operator: key name below
+secret_key: api-key
+agent:
+  harness: loop
+  loop_bin: /opt/harness/bin/loop
+  base_url: https://api.soket.ai/v1
+  model: GLM-5.3
+  thinking_level: "off"                # off | minimal | low | medium | high | xhigh | max
+  response_header_timeout_ms: 600000
+results_dir: results
