@@ -78,6 +78,8 @@ class Settings:
     pending_timeout_s: int = 600
     deadline_grace_s: int = 300
     verify_timeout_s: int = 300
+    infra_retries: int = 2
+    infra_retry_wait_s: int = 30
     ephemeral_storage: str = "4Gi"
     work_size_limit: str = "2Gi"
     tmp_size_limit: str = "256Mi"

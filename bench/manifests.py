@@ -17,10 +17,11 @@ APP_LABEL = "bench-constrained"
 UID = 10001
 
 
-def job_name(run_id: str, task_id: str, profile: str, repeat: int) -> str:
+def job_name(run_id: str, task_id: str, profile: str, repeat: int, attempt: int = 1) -> str:
     """DNS-safe, unique, at most 63 characters."""
-    base = re.sub(r"[^a-z0-9-]+", "-", f"b-{run_id}-{task_id}-{profile}-r{repeat}".lower()).strip("-")
-    digest = hashlib.sha1(f"{run_id}/{task_id}/{profile}/{repeat}".encode()).hexdigest()[:6]
+    suffix = f"-a{attempt}" if attempt > 1 else ""
+    base = re.sub(r"[^a-z0-9-]+", "-", f"b-{run_id}-{task_id}-{profile}-r{repeat}{suffix}".lower()).strip("-")
+    digest = hashlib.sha1(f"{run_id}/{task_id}/{profile}/{repeat}/{attempt}".encode()).hexdigest()[:6]
     return f"{base[:56].rstrip('-')}-{digest}"
 
 
@@ -53,8 +54,9 @@ def build_job(
     deadline_s: int | None = None,
     image: str | None = None,
     code_configmap: str | None = None,
+    attempt: int = 1,
 ) -> dict[str, Any]:
-    name = job_name(run_id, synth.replace(":", "-") if synth else task_id, profile.name, repeat)
+    name = job_name(run_id, synth.replace(":", "-") if synth else task_id, profile.name, repeat, attempt)
     lbls = labels(run_id, synth.replace(":", "-") if synth else task_id, profile.name, repeat)
     deadline = deadline_s or (timeout_s + settings.verify_timeout_s + settings.deadline_grace_s)
 

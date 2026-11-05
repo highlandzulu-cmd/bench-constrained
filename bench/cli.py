@@ -110,7 +110,17 @@ def cmd_run(a) -> int:
         if rec["status"] in ("infra_error", "fail", "timeout") and rec.get("notes"):
             print("      why: " + " | ".join(str(n) for n in rec["notes"])[:400].replace("\n", " "))
 
-    recs = run_matrix(cells, profiles, s, cluster, results_dir, max_parallel=a.parallel, keep=a.keep, on_done=show)
+    code_cm = None
+    if a.code_from_configmap:
+        code_cm = f"bench-code-{run_id}".lower()[:63]
+        cluster.create_configmap(code_cm, _code_files(), run_id)
+        print(f"runner code mounted from ConfigMap {code_cm} over the image's copy (this headnode's files, no rebuild)")
+    try:
+        recs = run_matrix(cells, profiles, s, cluster, results_dir, max_parallel=a.parallel, keep=a.keep,
+                          on_done=show, code_configmap=code_cm)
+    finally:
+        if code_cm:
+            cluster.delete_configmap(code_cm)
     print("\n" + report.markdown(report.summarize(recs)))
     print(f"\nresults: {results_dir / run_id}")
     return 0
@@ -205,6 +215,8 @@ def main(argv=None) -> int:
     r.add_argument("--repeats", type=int); r.add_argument("--parallel", type=int); r.add_argument("--run-id")
     r.add_argument("--mode", default="agent", choices=["agent", "verify"])
     r.add_argument("--keep", action="store_true", help="keep the Jobs after collecting results")
+    r.add_argument("--code-from-configmap", action="store_true",
+                   help="run this folder's runner code inside the image's pods (no image rebuild after a code change)")
     r.set_defaults(fn=cmd_run)
     pf = sub.add_parser("preflight"); pf.add_argument("--profile", default="tiny", help="comma separated; sizes the worst case")
     pf.set_defaults(fn=cmd_preflight)

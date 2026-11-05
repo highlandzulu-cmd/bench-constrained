@@ -13,6 +13,8 @@ repeats: 3
 pending_timeout_s: 600                 # a pod still Pending after this is an infrastructure error
 deadline_grace_s: 300                  # added to task timeout + verifier time for the Job deadline
 verify_timeout_s: 300
+infra_retries: 2                       # extra attempts, ONLY after an infrastructure error (model API down, image pull...); never after oom/fail/timeout
+infra_retry_wait_s: 30
 ephemeral_storage: 4Gi                 # request = limit
 work_size_limit: 2Gi                   # emptyDir for /work
 tmp_size_limit: 256Mi                  # emptyDir for /tmp

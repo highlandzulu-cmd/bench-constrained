@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -27,6 +28,21 @@ from .tasks import Task, get_task, load_tasks
 
 IGNORE = shutil.ignore_patterns("node_modules", "target", "__pycache__", ".git")
 TAIL_CHARS = 1500
+
+# Loop prints these when the model endpoint, not the task, is the problem.
+_API_ERROR = re.compile(r"HTTP (?:429|5\d\d)|Transport error|error decoding response|model is unavailable|"
+                        r"timed out|connection (?:refused|reset)|Bad Gateway|Service Unavailable|Gateway Time-?out",
+                        re.IGNORECASE)
+
+
+def detect_api_error(agent_exit: int | None, tail: str) -> str | None:
+    """The first line naming a model API failure, when the agent exited non-zero because of one."""
+    if agent_exit in (0, None):
+        return None
+    for line in tail.splitlines():
+        if _API_ERROR.search(line):
+            return line.strip()[:300]
+    return None
 
 
 @dataclass
@@ -257,6 +273,7 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
                 code, timed_out, tail = run_agent(task, cfg, work, env)
                 result.update(agent_exit_code=code, agent_timed_out=timed_out, agent_s=round(time.time() - ta, 1),
                               agent_tail=tail)
+                result["agent_api_error"] = detect_api_error(code, tail)
             elif cfg.mode == "verify":
                 result["solution_applied"] = apply_solution(task, cfg, work, env)
             else:
@@ -275,6 +292,8 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
     result.update(snapshot(cg, sampler))
     if result.get("error"):
         in_pod = "error"
+    elif result.get("agent_api_error"):
+        in_pod = "api_error"
     elif result["agent_timed_out"] or result["verifier_timed_out"]:
         in_pod = "timeout"
     elif result["verifier_exit_code"] == 0:
