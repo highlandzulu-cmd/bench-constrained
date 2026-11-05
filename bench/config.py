@@ -1,13 +1,15 @@
 """Loading the YAML config files into small typed objects."""
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parent.parent
+# Not .resolve(): a ConfigMap mount puts files behind symlinks, and resolving would point at the wrong folder.
+ROOT = Path(os.environ["BENCH_ROOT"]) if os.environ.get("BENCH_ROOT") else Path(os.path.abspath(__file__)).parent.parent
 CONFIG_DIR = ROOT / "config"
 
 

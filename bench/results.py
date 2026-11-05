@@ -119,4 +119,8 @@ def classify(cell: dict[str, Any], out: PodOutcome) -> dict[str, Any]:
 
     rec["status"] = status
     rec["notes"] = notes
+    # Worth another attempt only when the cause is likely temporary; a crash in our own runner would just repeat.
+    rec["retryable"] = status == "infra_error" and bool(
+        (result or {}).get("in_pod_status") == "api_error" or out.pending_timed_out
+        or out.waiting_reason in INFRA_WAITING_REASONS or out.pod_reason == "Evicted")
     return rec

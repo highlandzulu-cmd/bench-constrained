@@ -111,6 +111,7 @@ def build_job(
     if code_configmap:   # run the runner from a ConfigMap on a stock image: no custom image needed
         c = pod_spec["containers"][0]
         c["env"].append({"name": "PYTHONPATH", "value": "/opt/bench"})
+        c["env"].append({"name": "BENCH_ROOT", "value": "/opt/bench"})
         c["env"].append({"name": "PYTHONDONTWRITEBYTECODE", "value": "1"})
         c["volumeMounts"].append({"name": "code", "mountPath": "/opt/bench/bench", "readOnly": True})
         pod_spec["volumes"].append({"name": "code", "configMap": {"name": code_configmap}})

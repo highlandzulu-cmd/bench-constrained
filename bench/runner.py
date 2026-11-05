@@ -71,7 +71,7 @@ def run_with_retries(cell: dict[str, Any], profile: Profile, settings: Settings,
         rec = run_cell(cell, profile, settings, cluster, results_dir, keep=keep, attempt=attempt,
                        code_configmap=code_configmap)
         rec["attempts"] = attempt
-        if rec["status"] != "infra_error" or attempt > settings.infra_retries:
+        if not rec.get("retryable") or attempt > settings.infra_retries:
             rec["notes"] = history + list(rec.get("notes", []))
             (cell_dir(results_dir, cell) / "result.json").write_text(json.dumps(rec, indent=2, default=str))
             return rec

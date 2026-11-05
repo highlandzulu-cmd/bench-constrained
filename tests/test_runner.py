@@ -151,3 +151,29 @@ def test_code_configmap_is_mounted_over_the_image_code(tmp_path, tasks, profiles
     pod = cl.created[0]["spec"]["template"]["spec"]
     assert pod["containers"][0]["image"] == settings.image                      # still the real image
     assert {"name": "code", "configMap": {"name": "bench-code-r13"}} in pod["volumes"]
+
+
+def test_a_crash_in_our_own_runner_is_not_retried(tmp_path, tasks, profiles, settings):
+    from bench.runner import run_with_retries
+    crash = PodOutcome(exit_code=3, logs="BENCH_RESULT " + json.dumps({"in_pod_status": "error", "error": "Traceback ... FileNotFoundError"}))
+    cell = make_cells("r14", tasks[:1], [profiles["tiny"]], 1, "agent")[0]
+    cl = FakeCluster({"BUG-01": crash})
+    rec = run_with_retries(cell, profiles["tiny"], settings, cl, tmp_path, sleep=lambda s: None)
+    assert rec["status"] == "infra_error" and rec["attempts"] == 1 and len(cl.created) == 1
+
+
+def test_config_paths_survive_a_symlinked_mount(tmp_path):
+    """Kubernetes ConfigMap files are symlinks into a hidden folder; the runner must still find /opt/bench/config."""
+    import os, subprocess, sys
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "bench"
+    real, mount = tmp_path / "real", tmp_path / "opt" / "bench" / "bench"
+    real.mkdir()
+    mount.mkdir(parents=True)
+    for f in ("__init__.py", "config.py"):
+        (real / f).write_text((src / f).read_text())
+        os.symlink(real / f, mount / f)
+    out = subprocess.run([sys.executable, "-c", "import bench.config as c; print(c.ROOT)"],
+                         env={**os.environ, "PYTHONPATH": str(tmp_path / "opt" / "bench")}, capture_output=True, text=True,
+                         cwd=str(tmp_path))
+    assert out.stdout.strip() == str(tmp_path / "opt" / "bench"), out.stderr
