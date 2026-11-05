@@ -82,6 +82,37 @@ def setup_cline(home, work):
     return ["cline", "--json", "--data-dir", str(data), "--config", str(conf), "-P", "openai", "-m", MODEL, "--cwd", str(work), PROMPT], {}
 
 
+def setup_dsh(home, work):
+    """DeepSeek Harness: a patch overlay declares the custom provider (same shape the swebench runner uses)."""
+    d = home / "dsh-home"; d.mkdir()
+    patch = home / "bench.patch.yml"
+    patch.write_text(f"""- id: agent-default-model
+  config:
+    provider: custom
+    model: "{MODEL}"
+- id: llm-pi-ai
+  config:
+    providers:
+      custom:
+        apiKeyEnv: BENCH_API_KEY
+        api: openai-completions
+        baseURL: "{BASE}"
+        models:
+          - id: "{MODEL}"
+- id: bash-sandbox
+  config:
+    timeoutMs: 600000
+- id: otel
+  disabled: true
+- id: session-telemetry-otel
+  disabled: true
+- id: tool-web
+  disabled: true
+""")
+    return [os.environ.get("DSH_BIN", "dsh"), "--profile", "headless", "--patch", str(patch), PROMPT], {
+        "DSH_HOME": str(d), "DSH_PERMISSION_MODE": "danger-full-access", "BENCH_API_KEY": KEY}
+
+
 def setup_codex(home, work):
     """Expected to fail: Codex dropped the Chat Completions style and only speaks the Responses API, which Soket lacks (404)."""
     ch = home / "codex-home"; ch.mkdir()
@@ -92,7 +123,7 @@ def setup_codex(home, work):
     return cmd + ["-m", MODEL, PROMPT], {"CODEX_HOME": str(ch)}
 
 
-SETUPS = {"kilo": setup_kilo, "cline": setup_cline, "pi": setup_pi, "omp": setup_omp, "hermes": setup_hermes, "goose": setup_goose, "opencode": setup_opencode, "codex": setup_codex}
+SETUPS = {"dsh": setup_dsh, "kilo": setup_kilo, "cline": setup_cline, "pi": setup_pi, "omp": setup_omp, "hermes": setup_hermes, "goose": setup_goose, "opencode": setup_opencode, "codex": setup_codex}
 
 
 def run(name, timeout):
