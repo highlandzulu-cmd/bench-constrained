@@ -201,6 +201,11 @@ def cmd_clean(a) -> int:
 
 
 def main(argv=None) -> int:
+    # Show each line as it happens even when output goes to a file (nohup ... > run.log), instead of in one late chunk.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):
+        pass
     p = argparse.ArgumentParser(prog="bench")
     p.add_argument("--kubeconfig")
     p.add_argument("--context")
