@@ -7,6 +7,11 @@ profiles:
   sbc_arm:    { cpu: "4",   memory: 2Gi,   arch: arm64, cpu_scale: 0.4 }
   starve_384: { cpu: "1",   memory: 384Mi, arch: any }
   starve_256: { cpu: "0.5", memory: 256Mi, arch: any }
+  # Memory-only squeeze at the real target's CPU: finds where tasks start to fail.
+  mem_384:    { cpu: "1",   memory: 384Mi, arch: any }
+  mem_256:    { cpu: "1",   memory: 256Mi, arch: any }
+  mem_192:    { cpu: "1",   memory: 192Mi, arch: any }
+  mem_128:    { cpu: "1",   memory: 128Mi, arch: any }
 
 # Relative sweep: limits as a percentage of each task's measured baseline peak.
 relative_sweep:
