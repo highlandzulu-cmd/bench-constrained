@@ -76,8 +76,13 @@ def build_job(
         env.append({"name": "BENCH_TASK", "value": task_id})
     if mode == "agent" and not synth:
         env.append({"name": "BENCH_AGENT_JSON", "value": json.dumps(settings.agent, separators=(",", ":"))})
-        env.append({"name": "LLM_API_KEY", "valueFrom": {"secretKeyRef": {
-            "name": settings.secret_name, "key": settings.secret_key}}})
+        if settings.agent.get("harness", "loop") == "codex":
+            # Codex never sees the model key: it talks to the translator, which has its own access key.
+            ref = {"name": settings.agent["translator_secret_name"], "key": settings.agent.get("translator_secret_key", "key")}
+            env.append({"name": "BENCH_TRANSLATOR_KEY", "valueFrom": {"secretKeyRef": ref}})
+        else:
+            env.append({"name": "LLM_API_KEY", "valueFrom": {"secretKeyRef": {
+                "name": settings.secret_name, "key": settings.secret_key}}})
 
     node_selector = dict(settings.node_selector)
     if profile.arch != "any":
@@ -149,3 +154,59 @@ def guaranteed_qos(job: dict[str, Any]) -> bool:
             if r["requests"].get(key) != r["limits"].get(key) or key not in r["limits"]:
                 return False
     return True
+
+
+TRANSLATOR_NAME = "bench-translator"
+TRANSLATOR_PORT = 4000
+
+
+def build_translator(settings: Settings) -> list[dict[str, Any]]:
+    """ConfigMap + Deployment + Service for the Responses-to-Chat translator that Codex talks to.
+
+    Labelled app=bench-translator, NOT app=bench-constrained, so `bench clean` never removes it. Sized and pinned like the
+    benchmark pods: requests equal limits, only the allowed nodes, low priority. Its keys come from Secrets only.
+    """
+    a = settings.agent
+    cfg = (f"model_list:\n  - model_name: {a['model']}\n    litellm_params:\n      model: openai/{a['model']}\n"
+           f"      api_base: {a['base_url']}\n      api_key: os.environ/SOKET_API_KEY\n      use_chat_completions_api: true\n"
+           "litellm_settings:\n  drop_params: true\n")
+    labels = {"app": TRANSLATOR_NAME}
+    res = {"cpu": "1", "memory": "1536Mi", "ephemeral-storage": "1Gi"}
+    pod: dict[str, Any] = {
+        "automountServiceAccountToken": False,
+        "securityContext": {"runAsNonRoot": True, "runAsUser": UID, "runAsGroup": UID, "seccompProfile": {"type": "RuntimeDefault"}},
+        "containers": [{
+            "name": "translator", "image": settings.translator_image, "imagePullPolicy": "IfNotPresent",
+            "ports": [{"containerPort": TRANSLATOR_PORT}],
+            "env": [
+                {"name": "SOKET_API_KEY", "valueFrom": {"secretKeyRef": {"name": settings.secret_name, "key": settings.secret_key}}},
+                {"name": "LITELLM_MASTER_KEY", "valueFrom": {"secretKeyRef": {
+                    "name": a["translator_secret_name"], "key": a.get("translator_secret_key", "key")}}},
+                {"name": "HOME", "value": "/tmp"},
+            ],
+            "resources": {"requests": dict(res), "limits": dict(res)},
+            "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
+            "readinessProbe": {"httpGet": {"path": "/health/readiness", "port": TRANSLATOR_PORT}, "periodSeconds": 10},
+            "volumeMounts": [{"name": "config", "mountPath": "/config", "readOnly": True}, {"name": "tmp", "mountPath": "/tmp"}],
+        }],
+        "volumes": [{"name": "config", "configMap": {"name": f"{TRANSLATOR_NAME}-config"}},
+                    {"name": "tmp", "emptyDir": {"sizeLimit": "512Mi"}}],
+    }
+    if settings.allowed_nodes:
+        pod["affinity"] = {"nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [
+            {"matchExpressions": [{"key": "kubernetes.io/hostname", "operator": "In", "values": list(settings.allowed_nodes)}]}]}}}
+    if settings.node_selector:
+        pod["nodeSelector"] = dict(settings.node_selector)
+    if settings.priority_class:
+        pod["priorityClassName"] = settings.priority_class
+    if settings.image_pull_secrets:
+        pod["imagePullSecrets"] = [{"name": n} for n in settings.image_pull_secrets]
+    ns = settings.namespace
+    return [
+        {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": f"{TRANSLATOR_NAME}-config", "namespace": ns, "labels": labels},
+         "data": {"litellm.yaml": cfg}},
+        {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": TRANSLATOR_NAME, "namespace": ns, "labels": labels},
+         "spec": {"replicas": 1, "selector": {"matchLabels": labels}, "template": {"metadata": {"labels": dict(labels)}, "spec": pod}}},
+        {"apiVersion": "v1", "kind": "Service", "metadata": {"name": TRANSLATOR_NAME, "namespace": ns, "labels": labels},
+         "spec": {"selector": labels, "ports": [{"port": TRANSLATOR_PORT, "targetPort": TRANSLATOR_PORT}]}},
+    ]

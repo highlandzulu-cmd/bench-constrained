@@ -28,6 +28,10 @@ RUN mkdir -p /opt/harness/bin \
  && chmod +x /opt/harness/bin/loop \
  && rm /tmp/loop.tgz /tmp/loop.sha256
 
+# Harnesses under test besides Loop. Versions are pinned; DeepSeek Harness and Codex are the newest releases as of 2026-11-05.
+RUN npm install -g --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1 @openai/codex@0.166.0 \
+ && dsh --version && codex --version
+
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures
 RUN cd /opt/fixtures/dark-mode-site && npm ci --no-audit --no-fund

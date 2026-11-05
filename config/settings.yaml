@@ -21,10 +21,16 @@ tmp_size_limit: 256Mi                  # emptyDir for /tmp
 secret_name: bench-api-key             # created by the operator: key name below
 secret_key: api-key
 agent:
-  harness: loop
+  harness: loop                        # loop | dsh | codex  (override per run with `bench run --harness`)
   loop_bin: /opt/harness/bin/loop
   base_url: https://api.soket.ai/v1
   model: GLM-5.3
   thinking_level: "off"                # off | minimal | low | medium | high | xhigh | max
   response_header_timeout_ms: 600000
+  # Codex only: it speaks the Responses API, which the model endpoint lacks, so it goes through the translator
+  # service of deploy/translator.yaml (its own access key lives in this Secret, created by the operator).
+  translator_url: http://bench-translator.bench-constrained.svc.cluster.local:4000/v1
+  translator_secret_name: bench-translator-key
+  translator_secret_key: key
+translator_image: ghcr.io/highlandzulu-cmd/bench-translator:0.1   # built by the same GitHub Action; make the package public
 results_dir: results

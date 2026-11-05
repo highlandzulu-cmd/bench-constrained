@@ -99,3 +99,33 @@ Results land in `results/<run-id>/<task>/<profile>/<repeat>/` as `result.json`, 
 `config/settings.yaml` ships with `allowed_nodes: []`, and `bench run`, `bench selftest` and `bench preflight` refuse to start
 until nodes are named. Copy `config/settings.local.yaml.example` to `config/settings.local.yaml` (not committed) and list the
 nodes you are cleared to use. Run `bench preflight` first: it is read-only and shows who else is on those nodes.
+
+## Harnesses
+
+`bench run --harness <name>` picks the agent under test (default `agent.harness` in `config/settings.yaml`).
+
+| Harness | Version in the image | How it reaches the model |
+| --- | --- | --- |
+| `loop` | 0.6.0 | directly (OpenAI-compatible chat API) |
+| `dsh` (DeepSeek Harness) | 0.2.2-rc.1 | directly, through a patch overlay naming the custom provider |
+| `codex` | 0.166.0 | through the translator service: Codex only speaks the Responses API, which the model endpoint lacks |
+
+Each was checked on BUG-01 against the model before being added (`scripts/harness_probe.py`, `scripts/codex_via_litellm_probe.py`).
+Codex runs without its own sandbox because the pod is the sandbox; its tool calls and the translator never see the model key
+(the translator has it, via a Secret).
+
+### Running Codex: deploy the translator once
+
+```bash
+# 1. a random access key that only the translator and Codex pods share (typed/generated on the headnode, never pasted anywhere)
+kubectl -n bench-constrained create secret generic bench-translator-key --from-literal=key="$(openssl rand -hex 24)"
+# 2. the service (reads config/settings.local.yaml for the allowed nodes; refuses to run without it)
+.venv/bin/bench translator-manifest | kubectl apply -f -
+kubectl -n bench-constrained rollout status deploy/bench-translator
+# 3. run
+.venv/bin/bench run --harness codex --profile tiny --tasks BUG-01 --repeats 1 --code-from-configmap
+```
+
+The translator pod is outside the benchmark pods, so its memory does not count against the 512 MiB. It is labelled
+`app=bench-translator`, so `bench clean` never removes it; delete it with
+`.venv/bin/bench translator-manifest | kubectl delete -f -`.

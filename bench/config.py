@@ -88,6 +88,7 @@ class Settings:
     secret_name: str = "bench-api-key"
     secret_key: str = "api-key"
     agent: dict[str, Any] = field(default_factory=dict)
+    translator_image: str = "ghcr.io/highlandzulu-cmd/bench-translator:0.1"
     results_dir: str = "results"
 
 

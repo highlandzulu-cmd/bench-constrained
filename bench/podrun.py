@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import harnesses
 from .cgroup import MIB, Cgroup, Sampler, snapshot
 from .tasks import Task, get_task, load_tasks
 
@@ -127,46 +128,16 @@ def _run(cmd: list[str] | str, cwd: Path, env: dict[str, str], timeout_s: int, l
             return None, True
 
 
-def write_loop_config(cfg: PodConfig, home: Path) -> Path:
-    """A throwaway Loop config dir pinning the provider and model ."""
-    a = cfg.agent
-    agent_dir = home / "loop-agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    base_url, model = a["base_url"], a["model"]
-    think = str(a.get("thinking_level", "off"))
-    settings = {
-        "responseHeaderTimeoutMs": int(a.get("response_header_timeout_ms", 600000)),
-        "defaultThinkingLevel": think,
-        "providers": [{"id": "bench", "name": "bench", "baseUrl": base_url}],
-    }
-    model_entry: dict[str, Any] = {"id": model}
-    if think != "off":
-        model_entry["reasoning"] = True
-    models = {"providers": [{"id": "bench", "baseUrl": base_url, "apiKeyEnv": ["BENCH_API_KEY"],
-                             "models": [model_entry]}]}
-    (agent_dir / "settings.json").write_text(json.dumps(settings))
-    (agent_dir / "models.json").write_text(json.dumps(models))
-    return agent_dir
-
-
-def build_agent_cmd(task: Task, cfg: PodConfig, work: Path) -> list[str]:
-    a = cfg.agent
-    cmd = [a.get("loop_bin", "/opt/harness/bin/loop"), "--cwd", str(work), "--provider", "bench",
-           "--model", a["model"], "--permission-mode", "full-access", "--no-context-files", "--no-web"]
-    cmd += list(a.get("extra_args", []))
-    cmd += ["--print", task.prompt]
-    return cmd
-
-
 def run_agent(task: Task, cfg: PodConfig, work: Path, env: dict[str, str]) -> tuple[int | None, bool, str]:
     home = cfg.work_dir / "home"
     home.mkdir(parents=True, exist_ok=True)
-    agent_dir = write_loop_config(cfg, home)
-    aenv = dict(env, HOME=str(home), LOOP_CODING_AGENT_DIR=str(agent_dir),
-                LOOP_CODING_AGENT_SESSION_DIR=str(home / "loop-sessions"),
-                BENCH_API_KEY=env.get("LLM_API_KEY", ""))
+    spec = harnesses.launch(cfg.agent.get("harness", "loop"), task.prompt, work, home, cfg.agent, env)
+    for path, content in spec.files.items():
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_text(content)
+    aenv = dict(env, HOME=str(home), **spec.env)
     log = cfg.work_dir / "agent.log"
-    code, timed_out = _run(build_agent_cmd(task, cfg, work), work, aenv, task.timeout_s, log)
+    code, timed_out = _run(spec.cmd, work, aenv, task.timeout_s, log)
     return code, timed_out, _tail(log.read_text(errors="replace")) if log.exists() else ""
 
 
@@ -270,8 +241,9 @@ def run(cfg: PodConfig, env: dict[str, str] | None = None) -> dict[str, Any]:
             task = get_task(load_tasks(cfg.tasks_file), cfg.task_id)
             work = prepare_workdir(task, cfg)
             if cfg.mode == "agent":
-                if not env.get("LLM_API_KEY"):
-                    raise RuntimeError("LLM_API_KEY is not set (agent mode needs the model key)")
+                need = harnesses.required_env(cfg.agent.get("harness", "loop"))
+                if not env.get(need):
+                    raise RuntimeError(f"{need} is not set (agent mode needs the model key)")
                 ta = time.time()
                 code, timed_out, tail = run_agent(task, cfg, work, env)
                 result.update(agent_exit_code=code, agent_timed_out=timed_out, agent_s=round(time.time() - ta, 1),

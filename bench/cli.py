@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import sys
 import time
 from pathlib import Path
@@ -10,7 +11,7 @@ import yaml
 
 from . import report
 from .config import ROOT, load_profiles, load_settings
-from .manifests import build_job, guaranteed_qos
+from .manifests import build_job, build_translator, guaranteed_qos
 from .preflight import assess, scope_problem, worst_case, worst_case_disk_mib
 from .runner import make_cells, run_cell, run_matrix
 from .tasks import generate_tasks, get_task, load_tasks, write_tasks_yaml
@@ -47,6 +48,14 @@ def cmd_manifest(a) -> int:
                         timeout_s=t.timeout_s, mode=a.mode)
     assert guaranteed_qos(job)
     print(yaml.safe_dump(job, sort_keys=False))
+    return 0
+
+
+def cmd_translator_manifest(a) -> int:
+    s = load_settings()
+    if not _require_scope(s):
+        return 2
+    print(yaml.safe_dump_all(build_translator(s), sort_keys=False))
     return 0
 
 
@@ -92,12 +101,22 @@ def cmd_run(a) -> int:
     s, profiles = load_settings(), load_profiles()
     if not _require_scope(s):
         return 2
+    if a.harness:
+        from .harnesses import BUILDERS
+        if a.harness not in BUILDERS:
+            print(f"unknown harness {a.harness!r}; known: {sorted(BUILDERS)}", file=sys.stderr)
+            return 2
+        s = dataclasses.replace(s, agent={**s.agent, "harness": a.harness})
+    harness = s.agent.get("harness", "loop")
     names = a.profile.split(",")
     chosen = [profiles[n] for n in names]
     tasks = _select(load_tasks(), a.tasks)
     run_id = a.run_id or _run_id()
     cells = make_cells(run_id, tasks, chosen, a.repeats or s.repeats, a.mode)
+    for c in cells:
+        c["harness"] = harness
     results_dir = ROOT / s.results_dir
+    print(f"harness: {harness}")
     print(f"run {run_id}: {len(cells)} cells ({len(tasks)} tasks x {len(chosen)} profiles x "
           f"{a.repeats or s.repeats} repeats), up to {a.parallel or s.max_parallel} at a time, mode={a.mode}")
     cluster = _cluster(a, s)
@@ -219,10 +238,12 @@ def main(argv=None) -> int:
     r.add_argument("--tasks", default="", help="comma separated ids; default all 13")
     r.add_argument("--repeats", type=int); r.add_argument("--parallel", type=int); r.add_argument("--run-id")
     r.add_argument("--mode", default="agent", choices=["agent", "verify"])
+    r.add_argument("--harness", help="loop, dsh or codex (default: agent.harness in settings.yaml)")
     r.add_argument("--keep", action="store_true", help="keep the Jobs after collecting results")
     r.add_argument("--code-from-configmap", action="store_true",
                    help="run this folder's runner code inside the image's pods (no image rebuild after a code change)")
     r.set_defaults(fn=cmd_run)
+    sub.add_parser("translator-manifest", help="print the Codex translator service definition (apply with kubectl)").set_defaults(fn=cmd_translator_manifest)
     pf = sub.add_parser("preflight"); pf.add_argument("--profile", default="tiny", help="comma separated; sizes the worst case")
     pf.set_defaults(fn=cmd_preflight)
     t = sub.add_parser("selftest"); t.add_argument("--run-id")

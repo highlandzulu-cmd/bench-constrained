@@ -12,15 +12,15 @@ def load_results(results_dir: Path, run_id: str) -> list[dict[str, Any]]:
 
 
 def summarize(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by: dict[str, list[dict[str, Any]]] = {}
+    by: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in records:
-        by.setdefault(r["profile"], []).append(r)
+        by.setdefault((r.get("harness", "loop"), r["profile"]), []).append(r)
     rows = []
-    for profile, rs in by.items():
+    for (harness, profile), rs in by.items():
         counted = [r for r in rs if r["status"] != "infra_error"]       # infra errors are not in the pass rate
         walls = [r["wall_clock_s"] for r in counted if r.get("wall_clock_s") is not None]
         rows.append({
-            "profile": profile, "cells": len(rs), "counted": len(counted),
+            "harness": harness, "profile": profile, "cells": len(rs), "counted": len(counted),
             "pass": sum(r["status"] == "pass" for r in counted),
             "fail": sum(r["status"] == "fail" for r in counted),
             "oom": sum(r["status"] == "oom" for r in counted),
@@ -38,10 +38,10 @@ def _cell(v: Any) -> str:
 
 
 def markdown(rows: list[dict[str, Any]]) -> str:
-    head = "| profile | cells | pass | fail | oom | timeout | infra_error | pass rate % | median wall s | max peak MiB |\n"
-    head += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+    head = "| harness | profile | cells | pass | fail | oom | timeout | infra_error | pass rate % | median wall s | max peak MiB |\n"
+    head += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
     body = "\n".join(
-        f"| {r['profile']} | {r['cells']} | {r['pass']} | {r['fail']} | {r['oom']} | {r['timeout']} | "
+        f"| {r['harness']} | {r['profile']} | {r['cells']} | {r['pass']} | {r['fail']} | {r['oom']} | {r['timeout']} | "
         f"{r['infra_error']} | {_cell(r['pass_rate'])} | {_cell(r['median_wall_s'])} | {_cell(r['max_peak_mib'])} |" for r in rows)
     note = [f"\nNo result for profile {r['profile']}: all {r['cells']} cells were infrastructure errors, so there is "
             f"nothing to count. The reason is printed above and saved in each cell's result.json."
