@@ -66,3 +66,17 @@ def test_summary_excludes_infra_errors_from_the_pass_rate():
     ])
     r = rows[0]
     assert (r["cells"], r["counted"], r["pass_rate"], r["infra_error"]) == (3, 2, 50.0, 1)
+
+
+def test_summary_prints_dashes_and_a_reason_when_nothing_could_be_counted():
+    from bench.report import markdown, summarize
+    text = markdown(summarize([{"profile": "tiny", "status": "infra_error"}]))
+    assert "None" not in text and "| - | - | - |" in text and "infrastructure errors" in text
+
+
+def test_a_runner_error_is_explained_in_the_result(tmp_path, tasks, profiles, settings):
+    err = PodOutcome(exit_code=3, logs="BENCH_RESULT " + json.dumps(
+        {"in_pod_status": "error", "error": "RuntimeError: LLM_API_KEY is not set (agent mode needs the model key)"}))
+    rec = run_cell(make_cells("r9", tasks[:1], [profiles["tiny"]], 1, "agent")[0], profiles["tiny"], settings,
+                   FakeCluster({"BUG-01": err}), tmp_path)
+    assert rec["status"] == "infra_error" and "LLM_API_KEY is not set" in " ".join(rec["notes"])

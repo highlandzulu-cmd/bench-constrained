@@ -107,6 +107,8 @@ def cmd_run(a) -> int:
         done.append(rec)
         print(f"[{len(done)}/{len(cells)}] {rec['task_id']:12} {rec['profile']:11} r{rec['repeat']} "
               f"-> {rec['status']:11} peak={rec.get('peak_mem_mib')} MiB wall={rec.get('wall_clock_s')}s")
+        if rec["status"] in ("infra_error", "fail", "timeout") and rec.get("notes"):
+            print("      why: " + " | ".join(str(n) for n in rec["notes"])[:400].replace("\n", " "))
 
     recs = run_matrix(cells, profiles, s, cluster, results_dir, max_parallel=a.parallel, keep=a.keep, on_done=show)
     print("\n" + report.markdown(report.summarize(recs)))

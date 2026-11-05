@@ -33,9 +33,17 @@ def summarize(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def _cell(v: Any) -> str:
+    return "-" if v is None else str(v)
+
+
 def markdown(rows: list[dict[str, Any]]) -> str:
     head = "| profile | cells | pass | fail | oom | timeout | infra_error | pass rate % | median wall s | max peak MiB |\n"
     head += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
-    return head + "\n".join(
+    body = "\n".join(
         f"| {r['profile']} | {r['cells']} | {r['pass']} | {r['fail']} | {r['oom']} | {r['timeout']} | "
-        f"{r['infra_error']} | {r['pass_rate']} | {r['median_wall_s']} | {r['max_peak_mib']} |" for r in rows)
+        f"{r['infra_error']} | {_cell(r['pass_rate'])} | {_cell(r['median_wall_s'])} | {_cell(r['max_peak_mib'])} |" for r in rows)
+    note = [f"\nNo result for profile {r['profile']}: all {r['cells']} cells were infrastructure errors, so there is "
+            f"nothing to count. The reason is printed above and saved in each cell's result.json."
+            for r in rows if r["counted"] == 0]
+    return head + body + "".join(note)
