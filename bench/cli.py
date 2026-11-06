@@ -78,6 +78,8 @@ def cmd_preflight(a) -> int:
     if not _require_scope(s):
         return 2
     chosen = [profiles[n] for n in a.profile.split(",")]
+    if a.total_parallel:                      # several runs at once: size the check for all of them together
+        s = dataclasses.replace(s, max_parallel=a.total_parallel)
     cpu, mem = worst_case(s, chosen)
     cluster = _cluster(a, s)
     print(f"namespace: {s.namespace} (the only one this tool touches)")
@@ -272,6 +274,7 @@ def main(argv=None) -> int:
     r.set_defaults(fn=cmd_run)
     sub.add_parser("translator-manifest", help="print the Codex translator service definition (apply with kubectl)").set_defaults(fn=cmd_translator_manifest)
     pf = sub.add_parser("preflight"); pf.add_argument("--profile", default="tiny", help="comma separated; sizes the worst case")
+    pf.add_argument("--total-parallel", type=int, help="pods you plan to run at once across ALL concurrent runs")
     pf.set_defaults(fn=cmd_preflight)
     t = sub.add_parser("selftest"); t.add_argument("--run-id")
     t.add_argument("--stock-image", nargs="?", const="python:3.12-slim", default=None, metavar="IMAGE",

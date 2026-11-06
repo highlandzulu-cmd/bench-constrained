@@ -114,3 +114,12 @@ def test_committed_settings_name_no_nodes_and_local_file_overrides(tmp_path):
     (tmp_path / "settings.local.yaml").write_text("allowed_nodes: [n1]\npriority_class: low\n")
     s = load_settings(base)
     assert s.allowed_nodes == ["n1"] and s.priority_class == "low"
+
+
+def test_the_namespace_quota_allows_several_runs_and_still_caps_the_namespace():
+    import yaml
+    docs = list(yaml.safe_load_all((__import__("pathlib").Path(__file__).resolve().parent.parent / "deploy" / "namespace.yaml").read_text()))
+    hard = next(d for d in docs if d["kind"] == "ResourceQuota")["spec"]["hard"]
+    assert int(hard["pods"]) >= 12 and int(hard["pods"]) <= 48                  # room for ~3 runs of 4 plus the translator, still a cap
+    assert hard["requests.cpu"] == hard["limits.cpu"] and hard["requests.memory"] == hard["limits.memory"]
+    assert hard["requests.ephemeral-storage"] == hard["limits.ephemeral-storage"]
