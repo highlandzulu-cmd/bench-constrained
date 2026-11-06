@@ -21,7 +21,8 @@ class LaunchSpec:
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
-REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY", "cline": "LLM_API_KEY", "kilo": "LLM_API_KEY"}
+REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY", "cline": "LLM_API_KEY", "kilo": "LLM_API_KEY",
+                "omp": "LLM_API_KEY", "opencode": "LLM_API_KEY", "hermes": "LLM_API_KEY"}
 
 
 def required_env(harness: str) -> str:
@@ -142,8 +143,42 @@ def kilo(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, 
                       {}, [str(x / "config"), str(x / "data"), str(x / "cache")])
 
 
+def omp(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Oh My Pi: a Pi fork; same models.json shape, but it does not expand "$NAME" in apiKey (that sent the literal text and got
+    a 401), so the key is written into the file at start-up, in the pod's scratch space only."""
+    agent = home / "omp-agent"
+    models = {"providers": {"bench": {"baseUrl": a["base_url"], "api": "openai-completions", "apiKey": env.get("LLM_API_KEY", ""),
+                                      "models": [{"id": a["model"]}]}}}
+    cmd = [a.get("omp_bin", "omp"), "--print", "--auto-approve", "--no-title", "--session-dir", str(home / "omp-sessions"),
+           "--cwd", str(work), "--model", f"bench/{a['model']}", prompt]
+    return LaunchSpec(cmd, {"PI_CODING_AGENT_DIR": str(agent)}, {str(agent / "models.json"): json.dumps(models)},
+                      [str(agent), str(home / "omp-sessions")])
+
+
+def opencode(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """OpenCode 2.x: like Kilo, the provider config is one JSON value in an environment variable. It works in the current
+    folder (podrun starts it in the task folder with PWD set to match)."""
+    cfg = json.dumps({"$schema": "https://opencode.ai/config.json", "provider": {"bench": {
+        "npm": "@ai-sdk/openai-compatible", "name": "bench", "options": {"baseURL": a["base_url"], "apiKey": "{env:BENCH_API_KEY}"},
+        "models": {a["model"]: {"name": a["model"]}}}}})
+    cmd = [a.get("opencode_bin", "opencode"), "run", "--standalone", "--auto", "--format", "json", "--model", f"bench/{a['model']}", prompt]
+    x = home / "xdg"
+    return LaunchSpec(cmd, {"OPENCODE_CONFIG_CONTENT": cfg, "BENCH_API_KEY": env.get("LLM_API_KEY", ""),
+                            "XDG_CONFIG_HOME": str(x / "config"), "XDG_DATA_HOME": str(x / "data"), "XDG_CACHE_HOME": str(x / "cache")},
+                      {}, [str(x / "config"), str(x / "data"), str(x / "cache")])
+
+
+def hermes(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Hermes Agent: a config.yaml in its home folder points the custom provider at the endpoint (key read from the environment)."""
+    h = home / "hermes-home"
+    text = f"model:\n  default: {a['model']}\n  provider: custom\n  base_url: {a['base_url']}\n  api_key: \"${{BENCH_API_KEY}}\"\n"
+    cmd = [a.get("hermes_bin", "hermes"), "-z", prompt, "--yolo", "--ignore-rules", "--provider", "custom", "-m", a["model"], "--in", str(work)]
+    return LaunchSpec(cmd, {"HERMES_HOME": str(h), "TERMINAL_CWD": str(work), "BENCH_API_KEY": env.get("LLM_API_KEY", "")},
+                      {str(h / "config.yaml"): text}, [str(h)])
+
+
 BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose, "cline": cline,
-                                                  "kilo": kilo}
+                                                  "kilo": kilo, "omp": omp, "opencode": opencode, "hermes": hermes}
 
 
 def launch(harness: str, prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:

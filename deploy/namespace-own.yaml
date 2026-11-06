@@ -1,0 +1,25 @@
+# Our own namespace so the runs do not share a quota or a namespace with anyone else. Needs cluster-admin approval:  kubectl apply -f deploy/namespace-own.yaml
+# Creates the dedicated namespace and a quota so a bad sweep cannot take over the cluster.
+# The quota is shared by every pod in the namespace (including other people's), so it bounds how many runs can go at once:
+# each benchmark pod uses 1 pod, 1 CPU, 512 MiB and 4 GiB scratch disk.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: praharsh-bench
+  labels: { app: praharsh-bench }
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bench-quota
+  namespace: praharsh-bench
+  labels: { app: praharsh-bench }
+spec:
+  hard:
+    pods: "24"
+    requests.cpu: "32"
+    limits.cpu: "32"
+    requests.memory: 48Gi
+    limits.memory: 48Gi
+    requests.ephemeral-storage: 120Gi
+    limits.ephemeral-storage: 120Gi

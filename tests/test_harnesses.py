@@ -242,3 +242,27 @@ def test_kilo_gets_its_whole_provider_config_in_the_environment_and_the_key_stay
 def test_the_image_pins_the_latest_kilo():
     text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
     assert '@kilocode/cli@7.8.27 && test "$(kilo --version)" = "7.8.27"' in text
+
+
+def test_omp_writes_the_key_into_its_models_file_only_in_the_pod_scratch():
+    s = harnesses.launch("omp", "FIX", WORK, HOME, A, ENV)
+    assert s.cmd[0] == "omp" and "--print" in s.cmd and f"bench/{A['model']}" in s.cmd and s.cmd[-1] == "FIX"
+    (path, text), = s.files.items()
+    assert path.startswith(str(HOME)) and ENV["LLM_API_KEY"] in text
+    assert ENV["LLM_API_KEY"] not in " ".join(s.cmd)
+
+
+def test_opencode_gets_its_provider_config_in_the_environment_and_the_key_stays_out_of_it():
+    s = harnesses.launch("opencode", "FIX", WORK, HOME, A, ENV)
+    assert s.cmd[:2] == ["opencode", "run"] and "--auto" in s.cmd and s.cmd[-1] == "FIX"
+    assert "{env:BENCH_API_KEY}" in s.env["OPENCODE_CONFIG_CONTENT"] and ENV["LLM_API_KEY"] not in s.env["OPENCODE_CONFIG_CONTENT"]
+    assert s.env["BENCH_API_KEY"] == ENV["LLM_API_KEY"]
+
+
+def test_hermes_reads_the_key_from_the_environment():
+    s = harnesses.launch("hermes", "FIX", WORK, HOME, A, ENV)
+    assert s.cmd[0] == "hermes" and "--yolo" in s.cmd and str(WORK) in s.cmd
+    (path, text), = s.files.items()
+    assert "${BENCH_API_KEY}" in text and ENV["LLM_API_KEY"] not in text and s.env["BENCH_API_KEY"] == ENV["LLM_API_KEY"]
+    for h in ("omp", "opencode", "hermes"):
+        assert harnesses.required_env(h) == "LLM_API_KEY"

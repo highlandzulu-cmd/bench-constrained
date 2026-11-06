@@ -51,6 +51,28 @@ RUN npm install -g --no-audit --no-fund cline@3.0.74 && test "$(cline --version)
 # Kilo Code, in its own layer
 RUN npm install -g --no-audit --no-fund @kilocode/cli@7.8.27 && test "$(kilo --version)" = "7.8.27"
 
+# Oh My Pi (OMP): standalone Linux binary from the GitHub release (it needs no Bun), checksum pinned
+ARG OMP_VERSION=v18.17.0
+ARG OMP_SHA256=a4ce6001ab1012ca835f4184d675437531bd1ac477a7ba8424ed0b5476e9e4cb
+RUN curl -fsSL "https://github.com/can1357/oh-my-pi/releases/download/${OMP_VERSION}/omp-linux-x64" -o /usr/local/bin/omp \
+ && echo "${OMP_SHA256}  /usr/local/bin/omp" | sha256sum -c - && chmod 755 /usr/local/bin/omp \
+ && omp --version | grep -q "18.17.0"
+
+# OpenCode 2.x (not on npm or the install script; the GitHub release ships the binary), checksum pinned
+ARG OPENCODE_VERSION=v2.2.5
+ARG OPENCODE_SHA256=09f44302c10fd036912f59c81fd1aef5df45dd06f649197f9dfc9bbe2a79614e
+RUN curl -fsSL "https://github.com/anomalyco/opencode/releases/download/${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" -o /tmp/oc.tgz \
+ && echo "${OPENCODE_SHA256}  /tmp/oc.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/oc.tgz -C /usr/local/bin && chmod 755 /usr/local/bin/opencode && rm /tmp/oc.tgz \
+ && opencode --version | grep -q "2.2.5"
+
+# Hermes Agent (Python, installed with uv into /opt so uid 10001 can read it)
+ARG UV_VERSION=0.13.5
+ENV UV_TOOL_DIR=/opt/hermes/tools UV_TOOL_BIN_DIR=/usr/local/bin UV_PYTHON_INSTALL_DIR=/opt/hermes/python UV_LINK_MODE=copy
+RUN curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" | tar -xz --strip-components=1 -C /usr/local/bin \
+ && uv tool install --python 3.12 "https://github.com/NousResearch/hermes-agent/archive/refs/tags/v0.23.0.tar.gz" \
+ && chmod -R a+rX /opt/hermes && hermes --version | head -1
+
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures
 RUN cd /opt/fixtures/dark-mode-site && npm ci --no-audit --no-fund
