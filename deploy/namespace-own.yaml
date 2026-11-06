@@ -16,10 +16,10 @@ metadata:
   labels: { app: praharsh-bench }
 spec:
   hard:
-    pods: "24"
-    requests.cpu: "32"
-    limits.cpu: "32"
-    requests.memory: 48Gi
-    limits.memory: 48Gi
-    requests.ephemeral-storage: 120Gi
-    limits.ephemeral-storage: 120Gi
+    pods: "6"
+    requests.cpu: "6"
+    limits.cpu: "6"
+    requests.memory: 4Gi
+    limits.memory: 4Gi
+    requests.ephemeral-storage: 30Gi
+    limits.ephemeral-storage: 30Gi
