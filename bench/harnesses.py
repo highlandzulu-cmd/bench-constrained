@@ -21,7 +21,7 @@ class LaunchSpec:
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
-REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY"}
+REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY"}
 
 
 def required_env(harness: str) -> str:
@@ -103,7 +103,21 @@ def pi(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, st
                       {str(agent / "models.json"): json.dumps(models)}, [str(agent)])
 
 
-BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi}
+def goose(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Goose: its `openai` provider with the host and path pointed at the model endpoint; everything through environment
+    variables, keyring off, autonomous mode, no session saved."""
+    from urllib.parse import urlsplit
+    u = urlsplit(a["base_url"])
+    host = f"{u.scheme}://{u.netloc}"
+    path = (u.path.strip("/") + "/chat/completions").lstrip("/")
+    cmd = [a.get("goose_bin", "goose"), "run", "-t", prompt, "-q", "--provider", "openai", "--model", a["model"],
+           "--no-session", "--with-builtin", "developer"]
+    return LaunchSpec(cmd, {"GOOSE_PATH_ROOT": str(home / "goose-root"), "GOOSE_DISABLE_KEYRING": "1", "GOOSE_MODE": "auto",
+                            "GOOSE_PROVIDER": "openai", "OPENAI_HOST": host, "OPENAI_BASE_PATH": path,
+                            "OPENAI_API_KEY": env.get("LLM_API_KEY", "")}, {}, [str(home / "goose-root")])
+
+
+BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose}
 
 
 def launch(harness: str, prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:

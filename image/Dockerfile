@@ -37,6 +37,14 @@ RUN npm install -g --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1 @openai/code
  && test "$(dsh --version)" = "0.2.2-rc.1" && codex --version | grep -q "0.166.0" && test "$(pi --version)" = "1.5.0" \
  && node -e "const [a,b]=process.versions.node.split('.').map(Number); if (a<24 || (a===24 && b<9)) process.exit(1)"
 
+# Goose (single binary, checksum from the GitHub release's published digest)
+ARG GOOSE_VERSION=v1.57.0
+ARG GOOSE_SHA256=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3
+RUN curl -fsSL "https://github.com/block/goose/releases/download/${GOOSE_VERSION}/goose-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/goose.tgz \
+ && echo "${GOOSE_SHA256}  /tmp/goose.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/goose.tgz -C /usr/local/bin ./goose && chmod +x /usr/local/bin/goose && rm /tmp/goose.tgz \
+ && goose --version | grep -q "1.57.0"
+
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures
 RUN cd /opt/fixtures/dark-mode-site && npm ci --no-audit --no-fund

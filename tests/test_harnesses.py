@@ -193,3 +193,19 @@ def test_pi_declares_the_endpoint_in_models_json_and_never_puts_the_key_on_the_c
 def test_the_image_pins_the_latest_pi_and_checks_it_runs():
     text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
     assert "@earendil-works/pi-coding-agent@1.5.0" in text and 'test "$(pi --version)" = "1.5.0"' in text
+
+
+def test_goose_points_its_openai_provider_at_the_endpoint_with_the_key_only_in_the_environment():
+    s = harnesses.launch("goose", "FIX THE BUG", WORK, HOME, A, ENV)
+    assert s.cmd[:2] == ["goose", "run"] and "FIX THE BUG" in s.cmd and "--no-session" in s.cmd
+    assert s.cmd[s.cmd.index("--provider") + 1] == "openai" and s.cmd[s.cmd.index("--model") + 1] == "GLM-5.3"
+    assert s.env["OPENAI_HOST"] == "https://models.example" and s.env["OPENAI_BASE_PATH"] == "v1/chat/completions"
+    assert s.env["GOOSE_MODE"] == "auto" and s.env["GOOSE_DISABLE_KEYRING"] == "1" and s.env["OPENAI_API_KEY"] == SECRET
+    assert SECRET not in json.dumps(s.cmd) and str(HOME / "goose-root") in s.dirs
+    assert harnesses.required_env("goose") == "LLM_API_KEY"
+
+
+def test_the_image_installs_goose_with_a_verified_checksum():
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert "GOOSE_SHA256=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3" in text and "sha256sum -c" in text
+    assert 'goose --version | grep -q "1.57.0"' in text

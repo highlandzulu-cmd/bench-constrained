@@ -109,6 +109,7 @@ nodes you are cleared to use. Run `bench preflight` first: it is read-only and s
 | `loop` | 0.6.0 | directly (OpenAI-compatible chat API) |
 | `dsh` (DeepSeek Harness) | 0.2.2-rc.1 | directly, through a patch overlay naming the custom provider |
 | `codex` | 0.166.0 | through the translator service: Codex only speaks the Responses API, which the model endpoint lacks |
+| `goose` | 1.57.0 | directly, through its `openai` provider with the host and path set to the model endpoint |
 | `pi` | 1.5.0 | directly, through a `models.json` naming the OpenAI-compatible endpoint |
 
 Each was checked on BUG-01 against the model before being added (`scripts/harness_probe.py`, `scripts/codex_via_litellm_probe.py`).
