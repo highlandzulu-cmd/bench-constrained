@@ -32,9 +32,9 @@ RUN mkdir -p /opt/harness/bin \
  && chmod +x /opt/harness/bin/loop \
  && rm /tmp/loop.tgz /tmp/loop.sha256
 
-# Harnesses under test besides Loop. Versions are pinned; DeepSeek Harness and Codex are the newest releases as of 2026-11-05.
-RUN npm install -g --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1 @openai/codex@0.166.0 \
- && test "$(dsh --version)" = "0.2.2-rc.1" && codex --version | grep -q "0.166.0" \
+# Harnesses under test besides Loop. Versions are pinned; DeepSeek Harness, Codex and Pi are the newest releases as of 2026-11-06 (Pi needs Node >= 22.19).
+RUN npm install -g --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1 @openai/codex@0.166.0 @earendil-works/pi-coding-agent@1.5.0 \
+ && test "$(dsh --version)" = "0.2.2-rc.1" && codex --version | grep -q "0.166.0" && test "$(pi --version)" = "1.5.0" \
  && node -e "const [a,b]=process.versions.node.split('.').map(Number); if (a<24 || (a===24 && b<9)) process.exit(1)"
 
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.

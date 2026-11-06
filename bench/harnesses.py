@@ -21,7 +21,7 @@ class LaunchSpec:
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
-REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY"}
+REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY"}
 
 
 def required_env(harness: str) -> str:
@@ -93,7 +93,17 @@ def codex(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str,
     return LaunchSpec(cmd, {"CODEX_HOME": str(home / "codex-home")}, {}, [str(home / "codex-home")])
 
 
-BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex}
+def pi(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Pi: a models.json in its agent folder declares the OpenAI-compatible endpoint; it expands $BENCH_API_KEY itself."""
+    agent = home / "pi-agent"
+    models = {"providers": {"bench": {"baseUrl": a["base_url"], "api": "openai-completions", "apiKey": "$BENCH_API_KEY",
+                                      "models": [{"id": a["model"]}]}}}
+    cmd = [a.get("pi_bin", "pi"), "--print", prompt, "--provider", "bench", "--model", a["model"], "--no-session"]
+    return LaunchSpec(cmd, {"PI_CODING_AGENT_DIR": str(agent), "PI_OFFLINE": "1", "BENCH_API_KEY": env.get("LLM_API_KEY", "")},
+                      {str(agent / "models.json"): json.dumps(models)}, [str(agent)])
+
+
+BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi}
 
 
 def launch(harness: str, prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:

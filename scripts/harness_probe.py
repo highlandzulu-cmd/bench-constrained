@@ -25,7 +25,7 @@ def models_json():
 def setup_pi(home, work):
     agent = home / "pi-agent"; agent.mkdir()
     (agent / "models.json").write_text(models_json())
-    return ["pi", "--print", PROMPT, "--provider", "soket", "--model", MODEL, "--no-session"], {"PI_CODING_AGENT_DIR": str(agent), "PI_OFFLINE": "1"}
+    return [os.environ.get("PI_BIN", "pi"), "--print", PROMPT, "--provider", "soket", "--model", MODEL, "--no-session"], {"PI_CODING_AGENT_DIR": str(agent), "PI_OFFLINE": "1"}
 
 
 def setup_omp(home, work):

@@ -175,3 +175,21 @@ def test_the_pod_user_has_a_passwd_entry():
     assert "useradd -u 10001" in text and "getent passwd 10001" in text
     from bench.manifests import UID
     assert UID == 10001
+
+
+def test_pi_declares_the_endpoint_in_models_json_and_never_puts_the_key_on_the_command_line():
+    s = harnesses.launch("pi", "FIX THE BUG", WORK, HOME, A, ENV)
+    assert s.cmd[:2] == ["pi", "--print"] and "FIX THE BUG" in s.cmd and "--no-session" in s.cmd
+    assert s.cmd[s.cmd.index("--provider") + 1] == "bench" and s.cmd[s.cmd.index("--model") + 1] == "GLM-5.3"
+    models = json.loads(next(v for k, v in s.files.items() if k.endswith("models.json")))
+    p = models["providers"]["bench"]
+    assert p["baseUrl"] == "https://models.example/v1" and p["api"] == "openai-completions" and p["apiKey"] == "$BENCH_API_KEY"
+    assert SECRET not in json.dumps([s.cmd, s.files])                       # only the placeholder is written
+    assert s.env["BENCH_API_KEY"] == SECRET and s.env["PI_CODING_AGENT_DIR"] == str(HOME / "pi-agent")
+    assert str(HOME / "pi-agent") in s.dirs
+    assert harnesses.required_env("pi") == "LLM_API_KEY"
+
+
+def test_the_image_pins_the_latest_pi_and_checks_it_runs():
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert "@earendil-works/pi-coding-agent@1.5.0" in text and 'test "$(pi --version)" = "1.5.0"' in text
