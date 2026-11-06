@@ -46,7 +46,7 @@ def setup_hermes(home, work):
 
 def setup_goose(home, work):
     root = home / "goose-root"; root.mkdir()
-    return ["goose", "run", "-t", PROMPT, "-q", "--provider", "openai", "--model", MODEL, "--no-session", "--with-builtin", "developer"], {
+    return [os.environ.get("GOOSE_BIN", "goose"), "run", "-t", PROMPT, "-q", "--provider", "openai", "--model", MODEL, "--no-session", "--with-builtin", "developer"], {
         "GOOSE_PATH_ROOT": str(root), "GOOSE_DISABLE_KEYRING": "1", "GOOSE_MODE": "auto", "GOOSE_PROVIDER": "openai",
         "OPENAI_HOST": "https://api.soket.ai", "OPENAI_BASE_PATH": "v1/chat/completions", "OPENAI_API_KEY": KEY}
 
