@@ -73,13 +73,13 @@ def setup_kilo(home, work):
 
 
 def setup_cline(home, work):
+    """Cline keeps its provider choice in one JSON file; writing it directly keeps the key off every command line."""
     data, conf = home / "cline" / "data", home / "cline" / "config"
-    data.mkdir(parents=True); conf.mkdir(parents=True)
-    # `cline auth` stores the endpoint and key in the isolated folders (the key is on this command line only for an instant)
-    a = subprocess.run(["cline", "auth", "-p", "openai", "-k", KEY, "-m", MODEL, "-b", BASE, "--data-dir", str(data), "--config", str(conf)],
-                       capture_output=True, text=True, env={**os.environ, "HOME": str(home)}, stdin=subprocess.DEVNULL, timeout=60)
-    print(f"  (cline auth exit {a.returncode}: {(a.stdout + a.stderr).replace(KEY, '***').strip()[-160:]})")
-    return ["cline", "--json", "--data-dir", str(data), "--config", str(conf), "-P", "openai", "-m", MODEL, "--cwd", str(work), PROMPT], {}
+    (data / "settings").mkdir(parents=True); conf.mkdir(parents=True)
+    (data / "settings" / "providers.json").write_text(json.dumps({"version": 1, "lastUsedProvider": "openai-compatible", "modes": {},
+        "providers": {"openai-compatible": {"settings": {"provider": "openai-compatible", "apiKey": KEY, "model": MODEL, "baseUrl": BASE},
+                                            "updatedAt": "2026-01-01T00:00:00.000Z", "tokenSource": "manual"}}}))
+    return [os.environ.get("CLINE_BIN", "cline"), "--json", "--data-dir", str(data), "--config", str(conf), "-P", "openai", "-m", MODEL, "--cwd", str(work), PROMPT], {}
 
 
 def setup_dsh(home, work):

@@ -209,3 +209,20 @@ def test_the_image_installs_goose_with_a_verified_checksum():
     text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
     assert "GOOSE_SHA256=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3" in text and "sha256sum -c" in text
     assert 'goose --version | grep -q "1.57.0"' in text
+
+
+def test_cline_gets_its_provider_from_a_file_written_at_start_and_the_key_is_not_on_the_command_line():
+    s = harnesses.launch("cline", "FIX THE BUG", WORK, HOME, A, ENV)
+    assert s.cmd[0] == "cline" and "FIX THE BUG" in s.cmd and "--json" in s.cmd
+    assert s.cmd[s.cmd.index("-P") + 1] == "openai" and s.cmd[s.cmd.index("-m") + 1] == "GLM-5.3" and str(WORK) in s.cmd
+    assert SECRET not in json.dumps(s.cmd) and SECRET not in json.dumps(s.env)
+    (path, content), = s.files.items()
+    assert path.endswith("settings/providers.json")
+    p = json.loads(content)["providers"]["openai-compatible"]["settings"]
+    assert p["apiKey"] == SECRET and p["baseUrl"] == "https://models.example/v1" and p["model"] == "GLM-5.3"
+    assert harnesses.required_env("cline") == "LLM_API_KEY"
+
+
+def test_the_image_pins_the_latest_cline_in_its_own_layer():
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert 'cline@3.0.74 && test "$(cline --version)" = "3.0.74"' in text

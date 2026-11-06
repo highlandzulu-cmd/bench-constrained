@@ -21,7 +21,7 @@ class LaunchSpec:
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
-REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY"}
+REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY", "cline": "LLM_API_KEY"}
 
 
 def required_env(harness: str) -> str:
@@ -117,7 +117,19 @@ def goose(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str,
                             "OPENAI_API_KEY": env.get("LLM_API_KEY", "")}, {}, [str(home / "goose-root")])
 
 
-BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose}
+def cline(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Cline: its provider choice is one JSON file in its data folder. The pod writes it at start from the key in the
+    environment (never baked into the image, never on a command line)."""
+    data, conf = home / "cline" / "data", home / "cline" / "config"
+    providers = {"version": 1, "lastUsedProvider": "openai-compatible", "modes": {}, "providers": {"openai-compatible": {
+        "settings": {"provider": "openai-compatible", "apiKey": env.get("LLM_API_KEY", ""), "model": a["model"], "baseUrl": a["base_url"]},
+        "updatedAt": "2026-01-01T00:00:00.000Z", "tokenSource": "manual"}}}
+    cmd = [a.get("cline_bin", "cline"), "--json", "--data-dir", str(data), "--config", str(conf), "-P", "openai", "-m", a["model"],
+           "--cwd", str(work), prompt]
+    return LaunchSpec(cmd, {}, {str(data / "settings" / "providers.json"): json.dumps(providers)}, [str(conf)])
+
+
+BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose, "cline": cline}
 
 
 def launch(harness: str, prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:

@@ -109,6 +109,7 @@ nodes you are cleared to use. Run `bench preflight` first: it is read-only and s
 | `loop` | 0.6.0 | directly (OpenAI-compatible chat API) |
 | `dsh` (DeepSeek Harness) | 0.2.2-rc.1 | directly, through a patch overlay naming the custom provider |
 | `codex` | 0.166.0 | through the translator service: Codex only speaks the Responses API, which the model endpoint lacks |
+| `cline` | 3.0.74 | directly, through a `providers.json` the pod writes at start-up |
 | `goose` | 1.57.0 | directly, through its `openai` provider with the host and path set to the model endpoint |
 | `pi` | 1.5.0 | directly, through a `models.json` naming the OpenAI-compatible endpoint |
 

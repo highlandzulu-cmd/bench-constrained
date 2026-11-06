@@ -45,6 +45,9 @@ RUN curl -fsSL "https://github.com/block/goose/releases/download/${GOOSE_VERSION
  && tar -xzf /tmp/goose.tgz -C /usr/local/bin ./goose && chmod +x /usr/local/bin/goose && rm /tmp/goose.tgz \
  && goose --version | grep -q "1.57.0"
 
+# Cline, in its own layer so a version bump re-downloads only this
+RUN npm install -g --no-audit --no-fund cline@3.0.74 && test "$(cline --version)" = "3.0.74"
+
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures
 RUN cd /opt/fixtures/dark-mode-site && npm ci --no-audit --no-fund
