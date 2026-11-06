@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Side-by-side table of benchmark runs, with totals.
 
-  python3 scripts/compare_runs.py "Loop=results/1105-211130" "DeepSeek Harness=results/1106-004735"
+  python3 scripts/compare_runs.py [--compact] "Loop=results/1105-211130" "DeepSeek Harness=results/1106-004735"
 
 Totals: "task time" is the sum of every task's own wall clock (what one-after-another would cost); "elapsed" is the real
 time from the first pod being created to the last result being written (tasks run several at a time).
@@ -43,13 +43,30 @@ def summary(rows):
     }
 
 
+def compact(runs):
+    """One row per harness: the numbers to read first thing in the morning."""
+    print("| Harness | Passed | OOM / timeout / infra | Median task time | Highest peak | Median peak | Total task time | Total elapsed |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for label, rows in runs:
+        if not rows:
+            print(f"| {label} | no results | | | | | | |")
+            continue
+        s = summary(rows)
+        print(f"| {label} | {s['pass']} of {s['tasks']} | {s['oom']} / {s['timeout']} / {s['infra_error']} | {fmt_time(s['median_time'])} | "
+              f"{s['max_peak']:g} MiB ({100 * s['max_peak'] / 512:.0f}%) | {s['median_peak']:g} MiB | {fmt_time(s['task_time'])} | {fmt_time(s['elapsed'])} |")
+
+
 def main(argv):
+    do_compact = "--compact" in argv
+    argv = [a for a in argv if a != "--compact"]
     runs = []
     for a in argv:
         label, _, path = a.partition("=")
         runs.append((label, load(Path(path).expanduser())))
     if not runs:
         sys.exit(__doc__)
+    if do_compact:
+        return compact(runs)
     order = list(dict.fromkeys(t for _, rows in runs for t in rows))
     labels = [l for l, _ in runs]
     print("| Task | " + " | ".join(f"{l}: result | peak MiB | time" for l in labels) + " |")

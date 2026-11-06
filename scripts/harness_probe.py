@@ -67,7 +67,7 @@ def opencode_style_config():
 def setup_kilo(home, work):
     """Kilo is an OpenCode fork: same provider config, either env name accepted."""
     cfg = opencode_style_config()
-    return ["kilo", "run", "--auto", "--format", "json", "--model", f"soket/{MODEL}", "--dir", str(work), PROMPT], {
+    return [os.environ.get("KILO_BIN", "kilo"), "run", "--auto", "--format", "json", "--model", f"soket/{MODEL}", "--dir", str(work), PROMPT], {
         "KILO_CONFIG_CONTENT": cfg, "OPENCODE_CONFIG_CONTENT": cfg, "XDG_CONFIG_HOME": str(home / "xdg-config"),
         "XDG_DATA_HOME": str(home / "xdg-data"), "XDG_CACHE_HOME": str(home / "xdg-cache")}
 

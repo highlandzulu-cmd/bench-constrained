@@ -177,3 +177,9 @@ def test_config_paths_survive_a_symlinked_mount(tmp_path):
                          env={**os.environ, "PYTHONPATH": str(tmp_path / "opt" / "bench")}, capture_output=True, text=True,
                          cwd=str(tmp_path))
     assert out.stdout.strip() == str(tmp_path / "opt" / "bench"), out.stderr
+
+
+def test_overnight_script_runs_sequentially_backs_up_and_summarises():
+    text = (__import__("pathlib").Path(__file__).resolve().parent.parent / "scripts" / "overnight.sh").read_text()
+    assert "for h in" in text and "--run-id" in text and "tar czf" in text and "compare_runs.py --compact" in text
+    assert "pgrep -f \"bench run\"" in text                           # never two overlapping runs

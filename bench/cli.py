@@ -267,7 +267,7 @@ def main(argv=None) -> int:
     r.add_argument("--tasks", default="", help="comma separated ids; default all 13")
     r.add_argument("--repeats", type=int); r.add_argument("--parallel", type=int); r.add_argument("--run-id")
     r.add_argument("--mode", default="agent", choices=["agent", "verify"])
-    r.add_argument("--harness", help="loop, dsh, codex, pi, goose or cline (default: agent.harness in settings.yaml)")
+    r.add_argument("--harness", help="loop, dsh, codex, pi, goose, cline or kilo (default: agent.harness in settings.yaml)")
     r.add_argument("--keep", action="store_true", help="keep the Jobs after collecting results")
     r.add_argument("--code-from-configmap", action="store_true",
                    help="run this folder's runner code inside the image's pods (no image rebuild after a code change)")

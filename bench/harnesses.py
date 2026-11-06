@@ -21,7 +21,7 @@ class LaunchSpec:
 
 
 # Which environment variable must hold a key for each harness (checked before it is started).
-REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY", "cline": "LLM_API_KEY"}
+REQUIRED_ENV = {"loop": "LLM_API_KEY", "dsh": "LLM_API_KEY", "codex": "BENCH_TRANSLATOR_KEY", "pi": "LLM_API_KEY", "goose": "LLM_API_KEY", "cline": "LLM_API_KEY", "kilo": "LLM_API_KEY"}
 
 
 def required_env(harness: str) -> str:
@@ -129,7 +129,21 @@ def cline(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str,
     return LaunchSpec(cmd, {}, {str(data / "settings" / "providers.json"): json.dumps(providers)}, [str(conf)])
 
 
-BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose, "cline": cline}
+def kilo(prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:
+    """Kilo Code (an OpenCode fork): the whole provider config is one JSON value in an environment variable; its
+    state, cache and config folders are pointed at scratch space."""
+    cfg = json.dumps({"$schema": "https://opencode.ai/config.json", "provider": {"bench": {
+        "npm": "@ai-sdk/openai-compatible", "name": "bench", "options": {"baseURL": a["base_url"], "apiKey": "{env:BENCH_API_KEY}"},
+        "models": {a["model"]: {"name": a["model"]}}}}})
+    cmd = [a.get("kilo_bin", "kilo"), "run", "--auto", "--format", "json", "--model", f"bench/{a['model']}", "--dir", str(work), prompt]
+    x = home / "xdg"
+    return LaunchSpec(cmd, {"KILO_CONFIG_CONTENT": cfg, "OPENCODE_CONFIG_CONTENT": cfg, "BENCH_API_KEY": env.get("LLM_API_KEY", ""),
+                            "XDG_CONFIG_HOME": str(x / "config"), "XDG_DATA_HOME": str(x / "data"), "XDG_CACHE_HOME": str(x / "cache")},
+                      {}, [str(x / "config"), str(x / "data"), str(x / "cache")])
+
+
+BUILDERS: dict[str, Callable[..., LaunchSpec]] = {"loop": loop, "dsh": dsh, "codex": codex, "pi": pi, "goose": goose, "cline": cline,
+                                                  "kilo": kilo}
 
 
 def launch(harness: str, prompt: str, work: Path, home: Path, a: dict[str, Any], env: dict[str, str]) -> LaunchSpec:

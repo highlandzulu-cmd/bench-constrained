@@ -226,3 +226,19 @@ def test_cline_gets_its_provider_from_a_file_written_at_start_and_the_key_is_not
 def test_the_image_pins_the_latest_cline_in_its_own_layer():
     text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
     assert 'cline@3.0.74 && test "$(cline --version)" = "3.0.74"' in text
+
+
+def test_kilo_gets_its_whole_provider_config_in_the_environment_and_the_key_stays_out_of_it():
+    s = harnesses.launch("kilo", "FIX THE BUG", WORK, HOME, A, ENV)
+    assert s.cmd[:2] == ["kilo", "run"] and "FIX THE BUG" in s.cmd and "--auto" in s.cmd and str(WORK) in s.cmd
+    assert s.cmd[s.cmd.index("--model") + 1] == "bench/GLM-5.3"
+    cfg = json.loads(s.env["KILO_CONFIG_CONTENT"])["provider"]["bench"]
+    assert cfg["options"] == {"baseURL": "https://models.example/v1", "apiKey": "{env:BENCH_API_KEY}"} and "GLM-5.3" in cfg["models"]
+    assert SECRET not in json.dumps(s.cmd) and SECRET not in s.env["KILO_CONFIG_CONTENT"] and s.env["BENCH_API_KEY"] == SECRET
+    assert s.env["KILO_CONFIG_CONTENT"] == s.env["OPENCODE_CONFIG_CONTENT"] and len(s.dirs) == 3
+    assert harnesses.required_env("kilo") == "LLM_API_KEY"
+
+
+def test_the_image_pins_the_latest_kilo():
+    text = (Path(__file__).resolve().parent.parent / "image" / "Dockerfile").read_text()
+    assert '@kilocode/cli@7.8.27 && test "$(kilo --version)" = "7.8.27"' in text

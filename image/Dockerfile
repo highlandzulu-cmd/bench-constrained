@@ -48,6 +48,9 @@ RUN curl -fsSL "https://github.com/block/goose/releases/download/${GOOSE_VERSION
 # Cline, in its own layer so a version bump re-downloads only this
 RUN npm install -g --no-audit --no-fund cline@3.0.74 && test "$(cline --version)" = "3.0.74"
 
+# Kilo Code, in its own layer
+RUN npm install -g --no-audit --no-fund @kilocode/cli@7.8.27 && test "$(kilo --version)" = "7.8.27"
+
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
 COPY fixtures /opt/fixtures
 RUN cd /opt/fixtures/dark-mode-site && npm ci --no-audit --no-fund
