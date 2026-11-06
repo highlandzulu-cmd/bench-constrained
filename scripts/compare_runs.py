@@ -70,8 +70,8 @@ def main(argv):
     line("Highest peak memory (MiB)", lambda s: f"{s['max_peak']:g} ({100 * s['max_peak'] / 512:.0f}% of 512)")
     line("Median peak memory (MiB)", lambda s: f"{s['median_peak']:g}")
     line("Median CPU throttling", lambda s: f"{s['throttled']:g}% of periods")
-    line("**Total task time (sum of all tasks)**", lambda s: f"**{fmt_time(s['task_time'])}**")
-    line("**Total elapsed (real, tasks in parallel)**", lambda s: f"**{fmt_time(s['elapsed'])}**")
+    line("Total task time (sum of all tasks)", lambda s: f"**{fmt_time(s['task_time'])}**")
+    line("Total elapsed (real, tasks in parallel)", lambda s: f"**{fmt_time(s['elapsed'])}**")
 
 
 if __name__ == "__main__":
