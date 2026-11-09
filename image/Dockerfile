@@ -66,11 +66,17 @@ RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/
  && tar -xzf /tmp/oc.tgz -C /usr/local/bin && chmod 755 /usr/local/bin/opencode && rm /tmp/oc.tgz \
  && opencode --version | grep -q "2.2.5"
 
-# Hermes Agent (Python, installed with uv into /opt so uid 10001 can read it)
+# Hermes Agent (Python). It refuses wheel builds ("distributed via the shell installer, Docker image, or Nix"), so it is
+# installed the way its error message allows: an editable install from the release tarball, into a venv under /opt that uid 10001 can read.
 ARG UV_VERSION=0.13.5
-ENV UV_TOOL_DIR=/opt/hermes/tools UV_TOOL_BIN_DIR=/usr/local/bin UV_PYTHON_INSTALL_DIR=/opt/hermes/python UV_LINK_MODE=copy
+ARG HERMES_VERSION=v0.23.0
+ENV UV_PYTHON_INSTALL_DIR=/opt/hermes/python UV_LINK_MODE=copy
 RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" | tar -xz --strip-components=1 -C /usr/local/bin \
- && uv tool install --python 3.12 "https://github.com/NousResearch/hermes-agent/archive/refs/tags/v0.23.0.tar.gz" \
+ && mkdir -p /opt/hermes/src \
+ && curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/NousResearch/hermes-agent/archive/refs/tags/${HERMES_VERSION}.tar.gz" | tar -xz --strip-components=1 -C /opt/hermes/src \
+ && uv venv --python 3.12 /opt/hermes/venv \
+ && VIRTUAL_ENV=/opt/hermes/venv uv pip install -e /opt/hermes/src \
+ && ln -s /opt/hermes/venv/bin/hermes /usr/local/bin/hermes \
  && chmod -R a+rX /opt/hermes && hermes --version | head -1
 
 # Fixtures; the website one gets its dependencies installed now so no verifier needs network.
